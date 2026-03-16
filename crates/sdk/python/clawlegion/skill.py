@@ -98,24 +98,24 @@ class SkillOutput:
     data: Optional[Dict[str, Any]] = None
     """Structured result."""
 
-    success: bool = True  # noqa: F811
+    success: bool = True
     """Whether the skill completed successfully."""
 
-    error: Optional[str] = None  # noqa: F811
+    error: Optional[str] = None
     """Error message if failed."""
 
     follow_ups: List[Dict[str, Any]] = field(default_factory=list)
     """Follow-up actions requested."""
 
     @classmethod
-    def success(  # noqa: F811
+    def success_output(
         cls, text: Optional[str] = None, data: Optional[Dict[str, Any]] = None
     ) -> "SkillOutput":
         """Create a successful output."""
         return cls(text=text, data=data, success=True)
 
     @classmethod
-    def error(cls, message: str) -> "SkillOutput":  # noqa: F811
+    def error_output(cls, message: str) -> "SkillOutput":
         """Create an error output."""
         return cls(success=False, error=message)
 
