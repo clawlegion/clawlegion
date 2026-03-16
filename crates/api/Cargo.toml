@@ -1,0 +1,39 @@
+[package]
+name = "clawlegion-api"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["api", "web", "axum", "multi-agent"]
+categories = ["web-programming"]
+
+[dependencies]
+# Internal crates
+clawlegion-core = { path = "../core" }
+clawlegion-agent = { path = "../agent" }
+clawlegion-org = { path = "../org" }
+clawlegion-plugin = { path = "../plugin" }
+
+# Web framework
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Async
+tokio = { workspace = true }
+async-trait = { workspace = true }
+
+# Utils
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+futures-executor = "0.3"

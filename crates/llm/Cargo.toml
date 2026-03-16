@@ -1,0 +1,36 @@
+[package]
+name = "clawlegion-llm"
+description = "LLM abstraction layer for ClawLegion"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+# Core crate
+clawlegion-core.workspace = true
+
+# Async runtime
+tokio.workspace = true
+async-trait.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Error handling
+anyhow.workspace = true
+thiserror.workspace = true
+
+# Logging
+tracing.workspace = true
+
+# Utils
+parking_lot.workspace = true
+dashmap.workspace = true
+futures-core.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+uuid.workspace = true

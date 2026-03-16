@@ -1,0 +1,49 @@
+[package]
+name = "clawlegion"
+description = "ClawLegion Multi-Agent System"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "clawlegion"
+path = "src/main.rs"
+
+[dependencies]
+# Internal crates
+clawlegion-core.workspace = true
+clawlegion-plugin.workspace = true
+clawlegion-agent.workspace = true
+clawlegion-org.workspace = true
+clawlegion-capability.workspace = true
+clawlegion-storage.workspace = true
+clawlegion-sentinel.workspace = true
+clawlegion-llm.workspace = true
+clawlegion-api = { path = "../api" }
+
+# Async runtime
+tokio.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+# Error handling
+anyhow.workspace = true
+thiserror.workspace = true
+
+# Logging
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+# CLI
+clap.workspace = true
+
+# Utils
+uuid.workspace = true
+chrono.workspace = true
+parking_lot.workspace = true
+futures-executor.workspace = true

@@ -1,0 +1,33 @@
+[package]
+name = "clawlegion-core"
+description = "Core traits and types for ClawLegion Multi-Agent System"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+# Async runtime
+tokio.workspace = true
+async-trait.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+# Error handling
+anyhow.workspace = true
+thiserror.workspace = true
+
+# Utils
+uuid.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+dirs.workspace = true
+futures-core.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+tracing-subscriber.workspace = true

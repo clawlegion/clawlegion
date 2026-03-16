@@ -1,0 +1,26 @@
+id = "config-agent"
+version = "0.1.0"
+api_version = "v2"
+runtime = "config"
+entrypoint = "plugin.toml"
+
+[metadata]
+name = "config-agent"
+version = "0.1.0"
+description = "Example declarative agent plugin"
+author = "clawlegion"
+core_version = "0.1.0"
+dependencies = []
+tags = ["config", "agent", "example"]
+
+[[capabilities]]
+id = "agent.config_agent"
+kind = "agent"
+display_name = "Config Agent"
+description = "Declarative agent exposed from plugin manifest."
+interface = "clawlegion.agent.v1"
+tags = ["agent", "config"]
+
+[ui_metadata]
+category = "agent"
+icon = "user"

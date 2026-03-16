@@ -1,0 +1,52 @@
+[package]
+name = "clawlegion-capability"
+description = "Capability system (Skill/MCP/Tool) for ClawLegion"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+# Core crate
+clawlegion-core.workspace = true
+
+# Async runtime
+tokio.workspace = true
+async-trait.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Error handling
+anyhow.workspace = true
+thiserror.workspace = true
+
+# Logging
+tracing.workspace = true
+
+# Utils
+dashmap.workspace = true
+uuid.workspace = true
+parking_lot.workspace = true
+chrono.workspace = true
+dirs = "5.0"
+futures-util = "0.3"
+once_cell = "1.19"
+
+# TOML parsing for skill configs
+toml = "0.8"
+
+# HTTP client for marketplace integration
+reqwest = { version = "0.11", features = ["json", "stream"] }
+
+# ZIP support for skill installation
+zip = "0.6"
+
+# URL encoding for marketplace
+urlencoding = "2.1"
+
+# Dev dependencies
+[dev-dependencies]
+tempfile = "3"

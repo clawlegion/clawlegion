@@ -1,0 +1,30 @@
+id = "reddit-fetcher"
+version = "0.1.0"
+api_version = "v2"
+runtime = "dynamic"
+entrypoint = "target/release/libreddit_fetcher_plugin.dylib"
+
+[metadata]
+name = "reddit-fetcher"
+version = "0.1.0"
+description = "Fetches Reddit content as a tool plugin"
+author = "clawlegion"
+core_version = "0.1.0"
+dependencies = []
+tags = ["tool", "reddit"]
+
+[[capabilities]]
+id = "tool.reddit_fetch"
+kind = "tool"
+display_name = "Reddit Fetch"
+description = "Fetches posts and threads from Reddit."
+interface = "clawlegion.tool.v1"
+tags = ["fetch", "content"]
+
+[[permissions]]
+scope = "network"
+reason = "Fetches Reddit pages over HTTP."
+
+[ui_metadata]
+category = "tool"
+icon = "feed"

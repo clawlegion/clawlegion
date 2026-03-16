@@ -1,0 +1,38 @@
+id = "python-echo"
+version = "0.1.0"
+api_version = "v2"
+runtime = "python"
+entrypoint = "plugin_main.py"
+
+[metadata]
+name = "python-echo"
+version = "0.1.0"
+description = "Example Python skill plugin"
+author = "clawlegion"
+core_version = "0.1.0"
+dependencies = []
+tags = ["python", "skill", "example"]
+
+[[capabilities]]
+id = "skill.python_echo"
+kind = "skill"
+display_name = "Python Echo"
+description = "Echoes input through the Python plugin runtime."
+interface = "clawlegion.skill.v1"
+tags = ["echo", "example"]
+
+[[capabilities]]
+id = "tool.python_echo"
+kind = "tool"
+display_name = "Python Echo Tool"
+description = "Echoes JSON arguments through the Python tool runtime."
+interface = "clawlegion.tool.v1"
+tags = ["echo", "tool", "example"]
+
+[[permissions]]
+scope = "subprocess"
+reason = "Runs inside a Python interpreter process."
+
+[ui_metadata]
+category = "skill"
+icon = "terminal"

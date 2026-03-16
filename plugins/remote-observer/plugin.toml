@@ -1,0 +1,30 @@
+id = "remote-observer"
+version = "0.1.0"
+api_version = "v2"
+runtime = "remote"
+entrypoint = "https://plugins.example.internal/observer"
+
+[metadata]
+name = "remote-observer"
+version = "0.1.0"
+description = "Example remote watcher plugin"
+author = "clawlegion"
+core_version = "0.1.0"
+dependencies = []
+tags = ["remote", "watcher", "example"]
+
+[[capabilities]]
+id = "watcher.remote_observer"
+kind = "watcher"
+display_name = "Remote Observer"
+description = "Remote watcher endpoint placeholder."
+interface = "clawlegion.watcher.v1"
+tags = ["remote", "observer"]
+
+[[permissions]]
+scope = "network"
+reason = "Connects to a remote watcher endpoint."
+
+[ui_metadata]
+category = "watcher"
+icon = "radar"

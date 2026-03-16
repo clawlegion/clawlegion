@@ -1,0 +1,41 @@
+[package]
+name = "clawlegion-agent"
+description = "Agent runtime and SPI for ClawLegion"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+# Core crate
+clawlegion-core.workspace = true
+
+# Other crates
+clawlegion-capability.workspace = true
+clawlegion-llm.workspace = true
+clawlegion-storage.workspace = true
+
+# Async runtime
+tokio.workspace = true
+async-trait.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Error handling
+anyhow.workspace = true
+thiserror.workspace = true
+
+# Logging
+tracing.workspace = true
+
+# Utils
+uuid.workspace = true
+chrono.workspace = true
+dashmap.workspace = true
+parking_lot.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

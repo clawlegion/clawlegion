@@ -1,0 +1,30 @@
+id = "sqlite-storage"
+version = "0.1.0"
+api_version = "v2"
+runtime = "dynamic"
+entrypoint = "target/release/libsqlite_storage_plugin.dylib"
+
+[metadata]
+name = "sqlite-storage"
+version = "0.1.0"
+description = "SQLite-backed storage plugin"
+author = "clawlegion"
+core_version = "0.1.0"
+dependencies = []
+tags = ["storage", "sqlite"]
+
+[[capabilities]]
+id = "storage.sqlite"
+kind = "storage"
+display_name = "SQLite Storage"
+description = "Provides persistent storage via SQLite."
+interface = "clawlegion.storage.backend.v1"
+tags = ["database", "persistence"]
+
+[[permissions]]
+scope = "filesystem"
+reason = "Reads and writes the SQLite database file."
+
+[ui_metadata]
+category = "storage"
+icon = "database"

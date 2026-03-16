@@ -1,0 +1,30 @@
+id = "openai-provider"
+version = "0.1.0"
+api_version = "v2"
+runtime = "dynamic"
+entrypoint = "target/release/libopenai_provider_plugin.dylib"
+
+[metadata]
+name = "openai-provider"
+version = "0.1.0"
+description = "OpenAI-compatible LLM provider plugin"
+author = "clawlegion"
+core_version = "0.1.0"
+dependencies = []
+tags = ["llm", "openai"]
+
+[[capabilities]]
+id = "llm.openai"
+kind = "llm_provider"
+display_name = "OpenAI Provider"
+description = "Provides OpenAI-compatible chat completions."
+interface = "clawlegion.llm.provider.v1"
+tags = ["chat", "provider"]
+
+[[permissions]]
+scope = "network"
+reason = "Connects to OpenAI-compatible HTTP APIs."
+
+[ui_metadata]
+category = "llm"
+icon = "spark"

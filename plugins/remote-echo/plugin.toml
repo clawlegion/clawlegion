@@ -1,0 +1,38 @@
+id = "remote-echo"
+version = "0.1.0"
+api_version = "v2"
+runtime = "remote"
+entrypoint = "https://plugins.example.internal/echo"
+
+[metadata]
+name = "remote-echo"
+version = "0.1.0"
+description = "Example remote skill plugin"
+author = "clawlegion"
+core_version = "0.1.0"
+dependencies = []
+tags = ["remote", "skill", "example"]
+
+[[capabilities]]
+id = "skill.remote_echo"
+kind = "skill"
+display_name = "Remote Echo"
+description = "Remote skill endpoint placeholder."
+interface = "clawlegion.skill.v1"
+tags = ["remote", "echo"]
+
+[[capabilities]]
+id = "tool.remote_echo"
+kind = "tool"
+display_name = "Remote Echo Tool"
+description = "Remote tool endpoint placeholder."
+interface = "clawlegion.tool.v1"
+tags = ["remote", "echo", "tool"]
+
+[[permissions]]
+scope = "network"
+reason = "Connects to a remote skill endpoint."
+
+[ui_metadata]
+category = "skill"
+icon = "cloud"

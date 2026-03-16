@@ -1,0 +1,26 @@
+id = "config-routing"
+version = "0.1.0"
+api_version = "v2"
+runtime = "config"
+entrypoint = "plugin.toml"
+
+[metadata]
+name = "config-routing"
+version = "0.1.0"
+description = "Example declarative config plugin"
+author = "clawlegion"
+core_version = "0.1.0"
+dependencies = []
+tags = ["config", "tool", "example"]
+
+[[capabilities]]
+id = "tool.config_router"
+kind = "tool"
+display_name = "Config Router"
+description = "Declarative routing tool exposed from manifest only."
+interface = "clawlegion.tool.v1"
+tags = ["config", "router"]
+
+[ui_metadata]
+category = "tool"
+icon = "route"

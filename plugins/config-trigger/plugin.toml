@@ -1,0 +1,26 @@
+id = "config-trigger"
+version = "0.1.0"
+api_version = "v2"
+runtime = "config"
+entrypoint = "plugin.toml"
+
+[metadata]
+name = "config-trigger"
+version = "0.1.0"
+description = "Example declarative trigger plugin"
+author = "clawlegion"
+core_version = "0.1.0"
+dependencies = []
+tags = ["config", "trigger", "example"]
+
+[[capabilities]]
+id = "trigger.config_trigger"
+kind = "trigger"
+display_name = "Config Trigger"
+description = "Declarative trigger exposed from plugin manifest."
+interface = "clawlegion.trigger.v1"
+tags = ["trigger", "config"]
+
+[ui_metadata]
+category = "trigger"
+icon = "bell"

@@ -1,0 +1,30 @@
+id = "anthropic-provider"
+version = "0.1.0"
+api_version = "v2"
+runtime = "dynamic"
+entrypoint = "target/release/libanthropic_provider_plugin.dylib"
+
+[metadata]
+name = "anthropic-provider"
+version = "0.1.0"
+description = "Anthropic Claude LLM provider plugin"
+author = "clawlegion"
+core_version = "0.1.0"
+dependencies = []
+tags = ["llm", "anthropic"]
+
+[[capabilities]]
+id = "llm.anthropic"
+kind = "llm_provider"
+display_name = "Anthropic Provider"
+description = "Provides Claude chat completions."
+interface = "clawlegion.llm.provider.v1"
+tags = ["chat", "provider"]
+
+[[permissions]]
+scope = "network"
+reason = "Connects to Anthropic HTTP APIs."
+
+[ui_metadata]
+category = "llm"
+icon = "brain"

@@ -1,0 +1,93 @@
+[company]
+name = "Reddit热榜文化有限公司"
+issue_prefix = "RHB"
+budget_monthly_cents = 5000000
+
+[[agents]]
+name = "Reddit热榜文化有限公司CEO"
+role = "ceo"
+title = "首席执行官"
+capabilities = "汇总各组日报并输出公司级日报"
+[agents.runtime_config]
+report_schedule = "daily"
+monitor_interval_secs = 180
+
+[[agents]]
+name = "Reddit新问题整理组主管"
+role = "new-question-supervisor"
+title = "新问题整理组主管"
+reports_to = "Reddit热榜文化有限公司CEO"
+capabilities = "管理求助/咨询类热榜监控与整理"
+[agents.runtime_config]
+monitor_interval_secs = 180
+subreddits = ["AskReddit", "NoStupidQuestions", "relationships", "personalfinance"]
+focus = "help_or_consulting_only"
+
+[[agents]]
+name = "新问题监听分析师-AskReddit"
+role = "listener-analyst"
+title = "监听分析师"
+reports_to = "Reddit新问题整理组主管"
+capabilities = "监听AskReddit热榜，筛选求助或咨询问题"
+[agents.runtime_config]
+monitor_interval_secs = 180
+subreddit = "AskReddit"
+sort = "hot"
+
+[[agents]]
+name = "新问题监听分析师-NoStupidQuestions"
+role = "listener-analyst"
+title = "监听分析师"
+reports_to = "Reddit新问题整理组主管"
+capabilities = "监听NoStupidQuestions热榜，筛选求助或咨询问题"
+[agents.runtime_config]
+monitor_interval_secs = 180
+subreddit = "NoStupidQuestions"
+sort = "hot"
+
+[[agents]]
+name = "新问题监听分析师-relationships"
+role = "listener-analyst"
+title = "监听分析师"
+reports_to = "Reddit新问题整理组主管"
+capabilities = "监听relationships热榜，筛选求助或咨询问题"
+[agents.runtime_config]
+monitor_interval_secs = 180
+subreddit = "relationships"
+sort = "hot"
+
+[[agents]]
+name = "Reddit问题解决组主管"
+role = "problem-solving-supervisor"
+title = "问题解决组主管"
+reports_to = "Reddit热榜文化有限公司CEO"
+capabilities = "分派问题分析、痛点研究和解决输出"
+[agents.runtime_config]
+monitor_interval_secs = 180
+
+[[agents]]
+name = "问题分析员"
+role = "problem-analyst"
+title = "问题分析员"
+reports_to = "Reddit问题解决组主管"
+capabilities = "归纳问题类型和约束条件"
+[agents.runtime_config]
+monitor_interval_secs = 180
+
+[[agents]]
+name = "问题痛点研究员"
+role = "painpoint-researcher"
+title = "问题痛点研究员"
+reports_to = "Reddit问题解决组主管"
+capabilities = "提炼根因与关键痛点"
+[agents.runtime_config]
+monitor_interval_secs = 180
+
+[[agents]]
+name = "问题解决者"
+role = "problem-solver"
+title = "问题解决者"
+reports_to = "Reddit问题解决组主管"
+capabilities = "给出可执行解决方案"
+[agents.runtime_config]
+monitor_interval_secs = 180
