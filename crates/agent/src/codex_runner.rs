@@ -325,9 +325,7 @@ fn merge_message(existing: &mut String, incoming: &str) {
     if incoming.is_empty() {
         return;
     }
-    if existing.is_empty() {
-        *existing = incoming.to_string();
-    } else if incoming.starts_with(existing.as_str()) {
+    if existing.is_empty() || incoming.starts_with(existing.as_str()) {
         *existing = incoming.to_string();
     } else if !existing.ends_with(incoming) {
         existing.push_str(incoming);

@@ -144,17 +144,12 @@ impl Default for SystemConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum PluginTrustMode {
+    #[default]
     Development,
     Production,
-}
-
-impl Default for PluginTrustMode {
-    fn default() -> Self {
-        Self::Development
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

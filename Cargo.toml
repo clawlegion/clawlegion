@@ -77,11 +77,11 @@ ring = "0.17"
 base64 = "0.21"
 
 # Internal crates
-clawlegion-core = { path = "crates/core" }
-clawlegion-plugin = { path = "crates/plugin" }
-clawlegion-agent = { path = "crates/agent" }
-clawlegion-org = { path = "crates/org" }
-clawlegion-storage = { path = "crates/storage" }
-clawlegion-capability = { path = "crates/capability" }
-clawlegion-sentinel = { path = "crates/sentinel" }
-clawlegion-llm = { path = "crates/llm" }
+clawlegion-core = { version = "0.1.0", path = "crates/core" }
+clawlegion-plugin = { version = "0.1.0", path = "crates/plugin" }
+clawlegion-agent = { version = "0.1.0", path = "crates/agent" }
+clawlegion-org = { version = "0.1.0", path = "crates/org" }
+clawlegion-storage = { version = "0.1.0", path = "crates/storage" }
+clawlegion-capability = { version = "0.1.0", path = "crates/capability" }
+clawlegion-sentinel = { version = "0.1.0", path = "crates/sentinel" }
+clawlegion-llm = { version = "0.1.0", path = "crates/llm" }

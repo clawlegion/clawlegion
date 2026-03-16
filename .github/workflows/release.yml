@@ -1,0 +1,457 @@
+name: Release
+
+on:
+  push:
+    paths:
+      - 'Cargo.toml'
+      - 'web/package.json'
+      - 'crates/sdk/python/pyproject.toml'
+      - 'crates/sdk/python/clawlegion/__init__.py'
+      - 'packages/npm/package.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  pages: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.diff.outputs.should_release }}
+      base_version: ${{ steps.versions.outputs.base_version }}
+      release_version: ${{ steps.versions.outputs.release_version }}
+      release_tag: ${{ steps.versions.outputs.release_tag }}
+      prerelease: ${{ steps.versions.outputs.prerelease }}
+      npm_dist_tag: ${{ steps.versions.outputs.npm_dist_tag }}
+      default_branch: ${{ steps.versions.outputs.default_branch }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate version sync
+        run: python scripts/version_sync.py check
+      - id: diff
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --unified=0 "$BEFORE" "$GITHUB_SHA" -- Cargo.toml web/package.json crates/sdk/python/pyproject.toml crates/sdk/python/clawlegion/__init__.py packages/npm/package.json | grep -E '^[+-].*(version|__version__)'; then
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          fi
+      - id: versions
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          REF_NAME: ${{ github.ref_name }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          BASE_VERSION=$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+          data = tomllib.loads(Path("Cargo.toml").read_text(encoding="utf-8"))
+          print(data["workspace"]["package"]["version"])
+          PY
+          )
+          RELEASE_VERSION=$(python scripts/version_sync.py release-version --ref-name "$REF_NAME" --default-branch "$DEFAULT_BRANCH" --run-number "$RUN_NUMBER")
+          if [ "$REF_NAME" = "$DEFAULT_BRANCH" ]; then
+            PRERELEASE=false
+            NPM_DIST_TAG=latest
+          else
+            PRERELEASE=true
+            NPM_DIST_TAG=$(printf '%s' "$REF_NAME" | tr -cs '[:alnum:]' '-' | tr '[:upper:]' '[:lower:]' | sed 's/^-//;s/-$//')
+          fi
+          echo "base_version=$BASE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "release_version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "release_tag=v$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "npm_dist_tag=$NPM_DIST_TAG" >> "$GITHUB_OUTPUT"
+          echo "default_branch=$DEFAULT_BRANCH" >> "$GITHUB_OUTPUT"
+
+  build-binaries:
+    needs: prepare
+    if: needs.prepare.outputs.should_release == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary_name: clawlegion
+            archive_ext: tar.gz
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            binary_name: clawlegion
+            archive_ext: tar.gz
+          - runner: macos-13
+            target: x86_64-apple-darwin
+            binary_name: clawlegion
+            archive_ext: tar.gz
+          - runner: macos-14
+            target: aarch64-apple-darwin
+            binary_name: clawlegion
+            archive_ext: tar.gz
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary_name: clawlegion.exe
+            archive_ext: zip
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }} -p clawlegion
+      - name: Package binary
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.release_version }}
+          TARGET: ${{ matrix.target }}
+          BINARY_NAME: ${{ matrix.binary_name }}
+          ARCHIVE_EXT: ${{ matrix.archive_ext }}
+        run: |
+          mkdir -p dist
+          cp "target/$TARGET/release/$BINARY_NAME" "dist/clawlegion-v$RELEASE_VERSION-$TARGET${BINARY_NAME#clawlegion}"
+          mkdir -p archive-root
+          cp "target/$TARGET/release/$BINARY_NAME" "archive-root/$BINARY_NAME"
+          cp LICENSE archive-root/LICENSE
+          if [ "$ARCHIVE_EXT" = "zip" ]; then
+            powershell -Command "Compress-Archive -Path archive-root\\* -DestinationPath dist\\clawlegion-v$env:RELEASE_VERSION-$env:TARGET.zip"
+          else
+            tar -C archive-root -czf "dist/clawlegion-v$RELEASE_VERSION-$TARGET.tar.gz" .
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.target }}
+          path: dist/*
+
+  github-release:
+    needs:
+      - prepare
+      - build-binaries
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+      - uses: anchore/sbom-action@v0
+        with:
+          path: .
+          output-file: release-artifacts/sbom.spdx.json
+          format: spdx-json
+      - name: Generate checksums
+        run: |
+          find release-artifacts -type f -print0 | sort -z | xargs -0 sha256sum > release-artifacts/SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.release_tag }}
+          name: ${{ needs.prepare.outputs.release_tag }}
+          prerelease: ${{ needs.prepare.outputs.prerelease == 'true' }}
+          files: |
+            release-artifacts/**/*
+
+  publish-crates:
+    needs:
+      - prepare
+      - github-release
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Set release version
+        run: python scripts/version_sync.py set-version "${{ needs.prepare.outputs.release_version }}"
+      - name: Publish Rust crates in dependency order
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          for crate in \
+            clawlegion-core \
+            clawlegion-llm \
+            clawlegion-storage \
+            clawlegion-sentinel \
+            clawlegion-capability \
+            clawlegion-agent \
+            clawlegion-plugin \
+            clawlegion-plugin-sdk
+          do
+            cargo publish -p "$crate" --allow-dirty
+            sleep 30
+          done
+
+  publish-python:
+    needs:
+      - prepare
+      - github-release
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crates/sdk/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Set release version
+        run: python ../../../scripts/version_sync.py set-version "${{ needs.prepare.outputs.release_version }}"
+      - name: Build Python SDK
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: crates/sdk/python/dist/
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+  publish-npm:
+    needs:
+      - prepare
+      - github-release
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/npm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+      - name: Set release version
+        run: python ../../scripts/version_sync.py set-version "${{ needs.prepare.outputs.release_version }}"
+        working-directory: .
+      - name: Publish npm package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --tag "${{ needs.prepare.outputs.npm_dist_tag }}"
+
+  linux-packages:
+    needs:
+      - prepare
+      - build-binaries
+    if: needs.prepare.outputs.should_release == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            nfpm_arch: amd64
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            nfpm_arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-${{ matrix.target }}
+          path: release-artifact
+      - name: Install nfpm
+        run: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+      - name: Stage package inputs
+        shell: bash
+        run: |
+          mkdir -p packaging/stage/${{ matrix.nfpm_arch }}
+          cp release-artifact/clawlegion-v${{ needs.prepare.outputs.release_version }}-${{ matrix.target }} packaging/stage/${{ matrix.nfpm_arch }}/clawlegion
+          cp clawlegion.toml packaging/stage/${{ matrix.nfpm_arch }}/clawlegion.toml
+          cp LICENSE packaging/stage/${{ matrix.nfpm_arch }}/LICENSE
+          cp README.md packaging/stage/${{ matrix.nfpm_arch }}/README.md
+          cp packaging/systemd/clawlegion.service packaging/stage/${{ matrix.nfpm_arch }}/clawlegion.service
+          chmod +x packaging/stage/${{ matrix.nfpm_arch }}/clawlegion
+      - name: Build deb and rpm
+        env:
+          VERSION: ${{ needs.prepare.outputs.release_version }}
+          NFPM_ARCH: ${{ matrix.nfpm_arch }}
+          PACKAGE_INPUT_DIR: ${{ github.workspace }}/packaging/stage/${{ matrix.nfpm_arch }}
+        run: |
+          mkdir -p dist/packages/${{ matrix.nfpm_arch }}
+          ~/go/bin/nfpm pkg --packager deb --config packaging/nfpm.yaml --target dist/packages/${{ matrix.nfpm_arch }}/
+          ~/go/bin/nfpm pkg --packager rpm --config packaging/nfpm.yaml --target dist/packages/${{ matrix.nfpm_arch }}/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages-${{ matrix.nfpm_arch }}
+          path: dist/packages/${{ matrix.nfpm_arch }}/*
+
+  snap:
+    needs:
+      - prepare
+      - build-binaries
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-x86_64-unknown-linux-gnu
+          path: release-artifact
+      - name: Prepare snap source
+        run: |
+          rm -rf packaging/snap/local
+          mkdir -p packaging/snap/local/bin
+          cp release-artifact/clawlegion-v${{ needs.prepare.outputs.release_version }}-x86_64-unknown-linux-gnu packaging/snap/local/bin/clawlegion
+          chmod +x packaging/snap/local/bin/clawlegion
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("packaging/snap/snapcraft.yaml")
+          content = path.read_text(encoding="utf-8").replace("__VERSION__", "${{ needs.prepare.outputs.release_version }}")
+          if "${{ needs.prepare.outputs.prerelease }}" == "true":
+              content = content.replace("grade: stable", "grade: devel")
+          path.write_text(content, encoding="utf-8")
+          PY
+      - uses: snapcore/action-build@v1
+        id: snapcraft
+        with:
+          path: packaging/snap
+      - uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ steps.snapcraft.outputs.snap }}
+          release: stable
+
+  flatpak:
+    needs:
+      - prepare
+      - github-release
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Flatpak toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+      - name: Download Linux archive
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.release_version }}
+        run: |
+          curl -fsSL -o clawlegion-linux.tar.gz "https://github.com/${{ github.repository }}/releases/download/$RELEASE_TAG/clawlegion-v$RELEASE_VERSION-x86_64-unknown-linux-gnu.tar.gz"
+          SHA256=$(sha256sum clawlegion-linux.tar.gz | awk '{print $1}')
+          python scripts/render_flatpak_manifest.py \
+            --template packaging/flatpak/io.clawlegion.ClawLegion.yaml.tmpl \
+            --output packaging/flatpak/io.clawlegion.ClawLegion.yaml \
+            --archive-url "https://github.com/${{ github.repository }}/releases/download/$RELEASE_TAG/clawlegion-v$RELEASE_VERSION-x86_64-unknown-linux-gnu.tar.gz" \
+            --archive-sha256 "$SHA256"
+      - name: Build Flatpak repo
+        run: |
+          flatpak-builder --force-clean build-dir packaging/flatpak/io.clawlegion.ClawLegion.yaml
+          flatpak build-export flatpak-repo build-dir
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-repo
+          path: flatpak-repo
+
+  homebrew:
+    needs:
+      - prepare
+      - github-release
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download macOS archives
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.release_version }}
+        run: |
+          curl -fsSL -o macos-x86_64.tar.gz "https://github.com/${{ github.repository }}/releases/download/$RELEASE_TAG/clawlegion-v$RELEASE_VERSION-x86_64-apple-darwin.tar.gz"
+          curl -fsSL -o macos-arm64.tar.gz "https://github.com/${{ github.repository }}/releases/download/$RELEASE_TAG/clawlegion-v$RELEASE_VERSION-aarch64-apple-darwin.tar.gz"
+      - name: Render formula
+        run: |
+          python scripts/render_homebrew_formula.py \
+            --template packaging/homebrew/clawlegion.rb.tmpl \
+            --output clawlegion.rb \
+            --version "${{ needs.prepare.outputs.release_version }}" \
+            --macos-x86-url "https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare.outputs.release_tag }}/clawlegion-v${{ needs.prepare.outputs.release_version }}-x86_64-apple-darwin.tar.gz" \
+            --macos-x86-sha "$(sha256sum macos-x86_64.tar.gz | awk '{print $1}')" \
+            --macos-arm-url "https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare.outputs.release_tag }}/clawlegion-v${{ needs.prepare.outputs.release_version }}-aarch64-apple-darwin.tar.gz" \
+            --macos-arm-sha "$(sha256sum macos-arm64.tar.gz | awk '{print $1}')"
+      - name: Push formula to tap repository
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          HOMEBREW_TAP_REPOSITORY: ${{ secrets.HOMEBREW_TAP_REPOSITORY }}
+        run: |
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${HOMEBREW_TAP_REPOSITORY}.git" tap
+          cp clawlegion.rb tap/Formula/clawlegion.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/clawlegion.rb
+          git commit -m "Update clawlegion to ${{ needs.prepare.outputs.release_version }}"
+          git push
+
+  pages:
+    needs:
+      - prepare
+      - github-release
+      - linux-packages
+      - flatpak
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Install tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev apt-utils createrepo-c
+      - name: Build frontend
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+      - name: Assemble Pages site
+        run: |
+          mkdir -p site
+          cp -R web/dist/. site/
+          mkdir -p debs rpms
+          find artifacts -type f -name '*.deb' -exec cp {} debs/ \;
+          find artifacts -type f -name '*.rpm' -exec cp {} rpms/ \;
+          chmod +x scripts/build_pages_repos.sh
+          ./scripts/build_pages_repos.sh site debs rpms artifacts/flatpak-repo
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
+        id: deployment

@@ -22,7 +22,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 #[derive(Parser)]
 #[command(name = "clawlegion")]
 #[command(author = "ClawLegion Team")]
-#[command(version = "0.1.0")]
+#[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(about = "Multi-Agent Collaboration System", long_about = None)]
 struct Cli {
     #[command(subcommand)]
@@ -442,6 +442,7 @@ async fn cmd_agent(action: AgentCommands) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::await_holding_lock)]
 async fn cmd_plugin(config_path: &str, action: PluginCommands) -> Result<()> {
     let config = Config::load_from_file(Path::new(config_path))?;
     let plugin_manager = build_plugin_manager(&config)?;
