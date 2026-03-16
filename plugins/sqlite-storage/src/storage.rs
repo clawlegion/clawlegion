@@ -4,10 +4,11 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use clawlegion_core::{
     CompressedMemory, ConfigStorage, Error, MemoryCategory, MemoryEntry, MemorySearchQuery, Result,
-    Storage, StorageCapabilities, StorageError, StoragePage,
+    Storage, StorageError, StoragePage,
 };
 use parking_lot::Mutex;
-use rusqlite::{params, Connection, ToSql, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension};
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::mpsc::{self, TrySendError};
@@ -414,7 +415,7 @@ impl Storage for SqliteStorage {
 
     async fn store_memory(&self, memory: MemoryEntry) -> Result<Uuid> {
         let id = memory.id;
-        let company_id = memory.company_id;
+        let company_id = memory.company_id.to_string();
         let agent_id = memory.agent_id.map(|a| a.to_string());
         let category = memory.category_str().to_string();
         let content = memory.content;
@@ -464,9 +465,11 @@ impl Storage for SqliteStorage {
                 )
                 .map_err(|e| StorageError::OperationFailed(format!("Failed to prepare statement: {}", e)))?;
 
-            stmt.query_row(params![id_str], parse_memory_row)
+            let result = stmt
+                .query_row(params![id_str], parse_memory_row)
                 .optional()
-                .map_err(|e| StorageError::OperationFailed(format!("Query failed: {}", e)))
+                .map_err(|e| StorageError::OperationFailed(format!("Query failed: {}", e)))?;
+            Ok(result)
         })
         .await
     }
@@ -509,7 +512,11 @@ impl Storage for SqliteStorage {
                 memories.retain(|m| m.content.to_lowercase().contains(&keyword_lower));
             }
 
-            memories.sort_by(|a, b| b.importance.cmp(&a.importance));
+            memories.sort_by(|a, b| {
+                b.importance
+                    .partial_cmp(&a.importance)
+                    .unwrap_or(Ordering::Equal)
+            });
 
             if let Some(limit) = query.limit {
                 memories.truncate(limit);
@@ -575,23 +582,21 @@ impl Storage for SqliteStorage {
         })?;
         let time_range_start = memory.time_range.0.to_rfc3339();
         let time_range_end = memory.time_range.1.to_rfc3339();
-        let id = memory.id;
         let summary = memory.summary;
-        let importance = memory.importance;
+        let compressed_at = memory.compressed_at.to_rfc3339();
 
         self.run_db(move |conn| {
             conn.execute(
                 "INSERT INTO compressed_memories
-                (id, summary, source_ids, key_facts, time_range_start, time_range_end, importance, created_at)
-                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, CURRENT_TIMESTAMP)",
+                (source_ids, summary, key_facts, time_range_start, time_range_end, compressed_at)
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                 params![
-                    id.to_string(),
-                    summary,
                     source_ids,
+                    summary,
                     key_facts,
                     time_range_start,
                     time_range_end,
-                    importance,
+                    compressed_at,
                 ],
             )
             .map_err(|e| StorageError::OperationFailed(format!("Failed to store compressed memory: {}", e)))?;
@@ -600,60 +605,57 @@ impl Storage for SqliteStorage {
         })
         .await?;
 
-        Ok(id)
+        Ok(Uuid::new_v4())
     }
 
     async fn get_compressed_memories(&self) -> Result<Vec<CompressedMemory>> {
         self.run_db(move |conn| {
             let mut stmt = conn
                 .prepare(
-                    "SELECT id, summary, source_ids, key_facts, time_range_start, time_range_end, importance, created_at
-                     FROM compressed_memories ORDER BY created_at DESC",
+                    "SELECT source_ids, summary, key_facts, time_range_start, time_range_end, compressed_at
+                     FROM compressed_memories ORDER BY compressed_at DESC",
                 )
                 .map_err(|e| StorageError::OperationFailed(format!("Failed to prepare statement: {}", e)))?;
 
             let rows = stmt
                 .query_map([], |row| {
-                    let id: String = row.get(0)?;
+                    let source_ids_str: String = row.get(0)?;
                     let summary: String = row.get(1)?;
-                    let source_ids_str: String = row.get(2)?;
-                    let key_facts_str: String = row.get(3)?;
-                    let time_range_start: String = row.get(4)?;
-                    let time_range_end: String = row.get(5)?;
-                    let importance: i32 = row.get(6)?;
-                    let created_at: String = row.get(7)?;
+                    let key_facts_str: Option<String> = row.get(2)?;
+                    let time_range_start: Option<String> = row.get(3)?;
+                    let time_range_end: Option<String> = row.get(4)?;
+                    let compressed_at: String = row.get(5)?;
 
                     let source_ids: Vec<String> = serde_json::from_str(&source_ids_str)
                         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-                    let key_facts: Vec<String> = serde_json::from_str(&key_facts_str)
-                        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+                    let key_facts: Vec<String> = match key_facts_str {
+                        Some(value) if !value.is_empty() => serde_json::from_str(&value)
+                            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
+                        _ => Vec::new(),
+                    };
 
                     let source_ids = source_ids
                         .into_iter()
                         .filter_map(|id| Uuid::parse_str(&id).ok())
                         .collect();
 
-                    let time_range = (
-                        DateTime::parse_from_rfc3339(&time_range_start)
+                    let parse_time = |value: Option<String>| {
+                        value
+                            .and_then(|ts| DateTime::parse_from_rfc3339(&ts).ok())
                             .map(|dt| dt.with_timezone(&Utc))
-                            .unwrap_or_else(|_| Utc::now()),
-                        DateTime::parse_from_rfc3339(&time_range_end)
-                            .map(|dt| dt.with_timezone(&Utc))
-                            .unwrap_or_else(|_| Utc::now()),
-                    );
-
-                    let created_at = DateTime::parse_from_rfc3339(&created_at)
+                            .unwrap_or_else(Utc::now)
+                    };
+                    let time_range = (parse_time(time_range_start), parse_time(time_range_end));
+                    let compressed_at = DateTime::parse_from_rfc3339(&compressed_at)
                         .map(|dt| dt.with_timezone(&Utc))
                         .unwrap_or_else(|_| Utc::now());
 
                     Ok(CompressedMemory {
-                        id: Uuid::parse_str(&id).unwrap_or_else(|_| Uuid::new_v4()),
                         summary,
                         source_ids,
                         key_facts,
                         time_range,
-                        importance,
-                        created_at,
+                        compressed_at,
                     })
                 })
                 .map_err(|e| StorageError::OperationFailed(format!("Query failed: {}", e)))?;
@@ -684,13 +686,29 @@ impl Storage for SqliteStorage {
         .await
     }
 
-    async fn delete_expired_memories(&self) -> Result<usize> {
+    async fn delete_expired_memories(&self) -> Result<Vec<Uuid>> {
         self.run_db(move |conn| {
-            let deleted = conn
-                .execute("DELETE FROM memories WHERE expires_at < CURRENT_TIMESTAMP", [])
+            let mut stmt = conn
+                .prepare("SELECT id FROM memories WHERE expires_at < CURRENT_TIMESTAMP")
+                .map_err(|e| StorageError::OperationFailed(format!("Failed to prepare statement: {}", e)))?;
+
+            let rows = stmt
+                .query_map([], |row| row.get::<_, String>(0))
+                .map_err(|e| StorageError::OperationFailed(format!("Query failed: {}", e)))?;
+
+            let ids = rows
+                .collect::<std::result::Result<Vec<String>, _>>()
+                .map_err(|e| StorageError::OperationFailed(format!("Collect failed: {}", e)))?;
+
+            let uuids = ids
+                .iter()
+                .filter_map(|id| Uuid::parse_str(id).ok())
+                .collect::<Vec<_>>();
+
+            conn.execute("DELETE FROM memories WHERE expires_at < CURRENT_TIMESTAMP", [])
                 .map_err(|e| StorageError::OperationFailed(format!("Failed to delete memories: {}", e)))?;
 
-            Ok(deleted)
+            Ok(uuids)
         })
         .await
     }

@@ -57,25 +57,25 @@ class ToolContext:
 class ToolResult:
     """Result from tool execution."""
 
-    success: bool = True
+    success: bool = True  # noqa: F811
     """Success flag."""
 
     data: Optional[Any] = None
     """Result data."""
 
-    error: Optional[str] = None
+    error: Optional[str] = None  # noqa: F811
     """Error message if failed."""
 
     execution_time_ms: int = 0
     """Execution time in milliseconds."""
 
     @classmethod
-    def success(cls, data: Any) -> "ToolResult":
+    def success(cls, data: Any) -> "ToolResult":  # noqa: F811
         """Create a successful result."""
         return cls(data=data, success=True)
 
     @classmethod
-    def error(cls, message: str, execution_time_ms: int = 0) -> "ToolResult":
+    def error(cls, message: str, execution_time_ms: int = 0) -> "ToolResult":  # noqa: F811
         """Create an error result."""
         return cls(success=False, error=message, execution_time_ms=execution_time_ms)
 
