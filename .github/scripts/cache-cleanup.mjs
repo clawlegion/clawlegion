@@ -4,8 +4,14 @@ const prefixes = (process.env.CACHE_PREFIXES ?? "")
   .split(/[\n,]/)
   .map((value) => value.trim())
   .filter(Boolean);
-const keepLatest = Number.parseInt(process.env.KEEP_LATEST_PER_PREFIX ?? "4", 10);
-const keepRecentDays = Number.parseInt(process.env.KEEP_RECENT_DAYS ?? "14", 10);
+const keepLatest = Number.parseInt(
+  process.env.MAX_CACHES_PER_PREFIX ?? process.env.KEEP_LATEST_PER_PREFIX ?? "4",
+  10,
+);
+const keepRecentDays = Number.parseInt(
+  process.env.MAX_CACHE_AGE_DAYS ?? process.env.KEEP_RECENT_DAYS ?? "14",
+  10,
+);
 
 if (!token) {
   throw new Error("GITHUB_TOKEN is required.");

@@ -9,6 +9,8 @@ permissions:
 
 env:
   CACHE_SCHEMA: 2026-03
+  MAX_CACHES_PER_PREFIX: '6'
+  MAX_CACHE_AGE_DAYS: '21'
   NODE_VERSION: '20'
   PNPM_VERSION: '10'
   PYTHON_VERSION: '3.12'
@@ -40,6 +42,7 @@ jobs:
             python_sdk:
               - 'crates/sdk/python/**'
             release:
+              - 'VERSION'
               - '.github/workflows/**'
               - 'packaging/**'
               - 'packages/npm/**'
@@ -59,8 +62,9 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: clawlegion-rust-${{ env.CACHE_SCHEMA }}
-          shared-key: stable-${{ runner.os }}-workspace
+          prefix-key: clawlegion-rust-ci-${{ env.CACHE_SCHEMA }}
+          shared-key: stable-${{ runner.os }}-workspace-ci
+          key: ${{ hashFiles('Cargo.lock') }}
           cache-workspace-crates: 'true'
       - name: Check formatting
         run: cargo fmt --check
@@ -171,8 +175,10 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           CACHE_PREFIXES: |
             clawlegion-rust-
+            clawlegion-rust-ci-
+            clawlegion-rust-release-
             clawlegion-pnpm-
             clawlegion-pip-
-          KEEP_LATEST_PER_PREFIX: '6'
-          KEEP_RECENT_DAYS: '21'
+          MAX_CACHES_PER_PREFIX: ${{ env.MAX_CACHES_PER_PREFIX }}
+          MAX_CACHE_AGE_DAYS: ${{ env.MAX_CACHE_AGE_DAYS }}
         run: node .github/scripts/cache-cleanup.mjs

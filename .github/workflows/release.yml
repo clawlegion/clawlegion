@@ -3,6 +3,7 @@ name: Release
 on:
   push:
     paths:
+      - 'VERSION'
       - 'Cargo.toml'
       - 'web/package.json'
       - 'crates/sdk/python/pyproject.toml'
@@ -19,6 +20,8 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   CACHE_SCHEMA: 2026-03
+  MAX_CACHES_PER_PREFIX: '6'
+  MAX_CACHE_AGE_DAYS: '21'
   NODE_VERSION: '20'
   PNPM_VERSION: '10'
   PYTHON_VERSION: '3.12'
@@ -27,15 +30,20 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     outputs:
-      should_release: ${{ steps.diff.outputs.should_release }}
-      base_version: ${{ steps.versions.outputs.base_version }}
-      release_version: ${{ steps.versions.outputs.release_version }}
-      release_tag: ${{ steps.versions.outputs.release_tag }}
-      prerelease: ${{ steps.versions.outputs.prerelease }}
-      npm_dist_tag: ${{ steps.versions.outputs.npm_dist_tag }}
-      default_branch: ${{ steps.versions.outputs.default_branch }}
+      version_changed: ${{ steps.diff.outputs.version_changed }}
+      should_release: ${{ steps.policy.outputs.should_release }}
+      base_version: ${{ steps.policy.outputs.base_version }}
+      release_version: ${{ steps.policy.outputs.release_version }}
+      release_tag: ${{ steps.policy.outputs.release_tag }}
+      prerelease: ${{ steps.policy.outputs.prerelease }}
+      npm_dist_tag: ${{ steps.policy.outputs.npm_dist_tag }}
+      is_default_branch: ${{ steps.policy.outputs.is_default_branch }}
+      is_prerelease_version: ${{ steps.policy.outputs.is_prerelease_version }}
+      publish_channel: ${{ steps.policy.outputs.publish_channel }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -45,42 +53,95 @@ jobs:
         env:
           BEFORE: ${{ github.event.before }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          VERSION_FILES=(
+            VERSION
+            Cargo.toml
+            web/package.json
+            crates/sdk/python/pyproject.toml
+            crates/sdk/python/clawlegion/__init__.py
+            packages/npm/package.json
+          )
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            if git rev-parse HEAD^ >/dev/null 2>&1; then
+              BEFORE=$(git rev-parse HEAD^)
+            else
+              BEFORE=""
+            fi
+          fi
+          if [ -z "$BEFORE" ]; then
+            echo "version_changed=false" >> "$GITHUB_OUTPUT"
+            echo "No compare base available for release detection."
             exit 0
           fi
-          if git diff --unified=0 "$BEFORE" "$GITHUB_SHA" -- Cargo.toml web/package.json crates/sdk/python/pyproject.toml crates/sdk/python/clawlegion/__init__.py packages/npm/package.json | grep -E '^[+-].*(version|__version__)'; then
-            echo "should_release=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "should_release=false" >> "$GITHUB_OUTPUT"
-          fi
-      - id: versions
+if git diff --unified=0 "$BEFORE" "$GITHUB_SHA" -- "VERSION" | grep -E '^[+-]' >/dev/null; then
+  echo "version_changed=true" >> "$GITHUB_OUTPUT"
+elif git diff --unified=0 "$BEFORE" "$GITHUB_SHA" -- "${VERSION_FILES[@]}" | grep -E '^[+-].*("version"|version = |__version__)' >/dev/null; then
+  echo "version_changed=true" >> "$GITHUB_OUTPUT"
+else
+  echo "version_changed=false" >> "$GITHUB_OUTPUT"
+fi
+      - id: policy
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           REF_NAME: ${{ github.ref_name }}
-          RUN_NUMBER: ${{ github.run_number }}
+          VERSION_CHANGED: ${{ steps.diff.outputs.version_changed }}
         run: |
           BASE_VERSION=$(python - <<'PY'
-          import tomllib
           from pathlib import Path
-          data = tomllib.loads(Path("Cargo.toml").read_text(encoding="utf-8"))
-          print(data["workspace"]["package"]["version"])
+          print(Path("VERSION").read_text(encoding="utf-8").strip())
           PY
           )
-          RELEASE_VERSION=$(python scripts/version_sync.py release-version --ref-name "$REF_NAME" --default-branch "$DEFAULT_BRANCH" --run-number "$RUN_NUMBER")
-          if [ "$REF_NAME" = "$DEFAULT_BRANCH" ]; then
-            PRERELEASE=false
-            NPM_DIST_TAG=latest
-          else
-            PRERELEASE=true
-            NPM_DIST_TAG=$(printf '%s' "$REF_NAME" | tr -cs '[:alnum:]' '-' | tr '[:upper:]' '[:lower:]' | sed 's/^-//;s/-$//')
-          fi
-          echo "base_version=$BASE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "release_version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "release_tag=v$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
-          echo "npm_dist_tag=$NPM_DIST_TAG" >> "$GITHUB_OUTPUT"
-          echo "default_branch=$DEFAULT_BRANCH" >> "$GITHUB_OUTPUT"
+          export BASE_VERSION
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import os
+          import re
+
+          version = os.environ["BASE_VERSION"]
+          default_branch = os.environ["DEFAULT_BRANCH"]
+          ref_name = os.environ["REF_NAME"]
+          version_changed = os.environ.get("VERSION_CHANGED", "false")
+
+          match = re.fullmatch(
+              r"(?P<core>\d+\.\d+\.\d+)"
+              r"(?:-(?P<prerelease>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
+              r"(?:\+(?P<build>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?",
+              version,
+          )
+          if not match:
+              raise SystemExit(f"Unsupported release version format: {version}")
+
+          prerelease_label = match.group("prerelease") or ""
+          is_default_branch = ref_name == default_branch
+          is_prerelease_version = bool(prerelease_label)
+
+          if is_default_branch:
+              publish_channel = "stable"
+              prerelease = "false"
+              npm_dist_tag = "latest"
+          elif is_prerelease_version:
+              publish_channel = "prerelease"
+              prerelease = "true"
+              npm_dist_tag = prerelease_label.split(".", 1)[0].lower()
+          else:
+              publish_channel = "blocked"
+              prerelease = "true"
+              npm_dist_tag = "blocked"
+
+          print(f"should_release={version_changed}")
+          print(f"base_version={version}")
+          print(f"release_version={version}")
+          print(f"release_tag=v{version}")
+          print(f"prerelease={prerelease}")
+          print(f"npm_dist_tag={npm_dist_tag}")
+          print(f"is_default_branch={'true' if is_default_branch else 'false'}")
+          print(f"is_prerelease_version={'true' if is_prerelease_version else 'false'}")
+          print(f"publish_channel={publish_channel}")
+          PY
+      - name: Reject invalid non-default branch release version
+        if: steps.diff.outputs.version_changed == 'true' && steps.policy.outputs.publish_channel == 'blocked'
+        run: |
+          echo "::error::Non-default branches must use an explicit prerelease version (for example 0.1.0-beta.1) before this workflow can publish."
+          exit 1
 
   build-binaries:
     needs: prepare
@@ -117,8 +178,9 @@ jobs:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: clawlegion-rust-${{ env.CACHE_SCHEMA }}
-          shared-key: stable-${{ runner.os }}-${{ matrix.target }}
+          prefix-key: clawlegion-rust-release-${{ env.CACHE_SCHEMA }}
+          shared-key: stable-${{ runner.os }}-${{ matrix.target }}-release
+          key: ${{ hashFiles('Cargo.lock') }}
           cache-workspace-crates: 'true'
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }} -p clawlegion
@@ -184,6 +246,12 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: clawlegion-rust-release-${{ env.CACHE_SCHEMA }}
+          shared-key: stable-${{ runner.os }}-publish-release
+          key: ${{ hashFiles('Cargo.lock') }}
+          cache-workspace-crates: 'true'
       - name: Set release version
         run: python scripts/version_sync.py set-version "${{ needs.prepare.outputs.release_version }}"
       - name: Publish Rust crates in dependency order
@@ -347,7 +415,7 @@ jobs:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         with:
           snap: ${{ steps.snapcraft.outputs.snap }}
-          release: stable
+          release: ${{ needs.prepare.outputs.publish_channel == 'stable' && 'stable' || 'edge' }}
 
   flatpak:
     needs:
@@ -497,8 +565,10 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           CACHE_PREFIXES: |
             clawlegion-rust-
+            clawlegion-rust-ci-
+            clawlegion-rust-release-
             clawlegion-pnpm-
             clawlegion-pip-
-          KEEP_LATEST_PER_PREFIX: '6'
-          KEEP_RECENT_DAYS: '21'
+          MAX_CACHES_PER_PREFIX: ${{ env.MAX_CACHES_PER_PREFIX }}
+          MAX_CACHE_AGE_DAYS: ${{ env.MAX_CACHE_AGE_DAYS }}
         run: node .github/scripts/cache-cleanup.mjs

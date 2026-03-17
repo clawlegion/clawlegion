@@ -17,6 +17,7 @@ except ModuleNotFoundError:  # pragma: no cover
 
 ROOT = Path(__file__).resolve().parents[1]
 ROOT_CARGO = ROOT / "Cargo.toml"
+VERSION_FILE = ROOT / "VERSION"
 WEB_PACKAGE = ROOT / "web" / "package.json"
 PYPROJECT = ROOT / "crates" / "sdk" / "python" / "pyproject.toml"
 PYTHON_INIT = ROOT / "crates" / "sdk" / "python" / "clawlegion" / "__init__.py"
@@ -29,6 +30,12 @@ def read_text(path: Path) -> str:
 
 def write_text(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
+
+def root_version() -> str:
+    value = read_text(VERSION_FILE).strip()
+    if not value:
+        raise ValueError("VERSION file is empty")
+    return value
 
 
 def cargo_workspace_version() -> str:
@@ -67,6 +74,7 @@ def set_package_json_version(path: Path, version: str) -> None:
 
 
 def set_versions(version: str) -> None:
+    write_text(VERSION_FILE, f"{version}\n")
     update_regex(
         ROOT_CARGO,
         r'^(version = )"[^"]+"$',
@@ -94,6 +102,7 @@ def set_versions(version: str) -> None:
 
 def collect_versions() -> dict[str, str]:
     return {
+        "root_version": root_version(),
         "cargo_workspace": cargo_workspace_version(),
         "web_package": package_json_version(WEB_PACKAGE),
         "python_pyproject": pyproject_version(),
@@ -104,7 +113,7 @@ def collect_versions() -> dict[str, str]:
 
 def check_versions() -> int:
     versions = collect_versions()
-    expected = versions["cargo_workspace"]
+    expected = versions["root_version"]
     mismatches = {
         name: value for name, value in versions.items() if value != expected
     }
@@ -124,15 +133,28 @@ def check_versions() -> int:
     return 0
 
 
-def sanitize_branch(branch: str) -> str:
-    sanitized = re.sub(r"[^0-9A-Za-z]+", "-", branch).strip("-").lower()
-    return sanitized or "branch"
+SEMVER_PATTERN = re.compile(
+    r"^(?P<core>\d+\.\d+\.\d+)"
+    r"(?:-(?P<prerelease>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
+    r"(?:\+(?P<build>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
+)
+
+
+def semver_prerelease(version: str) -> str | None:
+    match = SEMVER_PATTERN.fullmatch(version)
+    if not match:
+        raise ValueError(f"unsupported version format: {version}")
+    return match.group("prerelease")
 
 
 def release_version(base_version: str, branch: str, default_branch: str, run_number: str) -> str:
-    if branch == default_branch:
-        return base_version
-    return f"{base_version}-branch.{sanitize_branch(branch)}.{run_number}"
+    del run_number
+    prerelease = semver_prerelease(base_version)
+    if branch != default_branch and not prerelease:
+        raise ValueError(
+            "non-default branches require an explicit prerelease version in the repository"
+        )
+    return base_version
 
 
 def parse_args() -> argparse.Namespace:
@@ -143,6 +165,8 @@ def parse_args() -> argparse.Namespace:
 
     sync_parser = subparsers.add_parser("set-version")
     sync_parser.add_argument("version")
+
+    subparsers.add_parser("sync")
 
     release_parser = subparsers.add_parser("release-version")
     release_parser.add_argument("--ref-name", required=True)
@@ -160,9 +184,14 @@ def main() -> int:
         set_versions(args.version)
         print(json.dumps({"status": "updated", "version": args.version}, indent=2))
         return 0
+    if args.command == "sync":
+        version = root_version()
+        set_versions(version)
+        print(json.dumps({"status": "synced", "version": version}, indent=2))
+        return 0
     if args.command == "release-version":
         version = release_version(
-            base_version=cargo_workspace_version(),
+            base_version=root_version(),
             branch=args.ref_name,
             default_branch=args.default_branch,
             run_number=args.run_number,
