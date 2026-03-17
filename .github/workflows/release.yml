@@ -33,6 +33,7 @@ jobs:
     outputs:
       version_changed: ${{ steps.diff.outputs.version_changed }}
       web_changed: ${{ steps.diff.outputs.web_changed }}
+      workflow_changed: ${{ steps.diff.outputs.workflow_changed }}
       should_release: ${{ steps.policy.outputs.should_release }}
       should_deploy_pages: ${{ steps.policy.outputs.should_deploy_pages }}
       base_version: ${{ steps.policy.outputs.base_version }}
@@ -74,6 +75,7 @@ jobs:
           if [ -z "$BEFORE" ]; then
             echo "version_changed=false" >> "$GITHUB_OUTPUT"
             echo "web_changed=false" >> "$GITHUB_OUTPUT"
+            echo "workflow_changed=false" >> "$GITHUB_OUTPUT"
             echo "No compare base available for release detection."
             exit 0
           fi
@@ -81,6 +83,11 @@ jobs:
             echo "web_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "web_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+          if git diff --name-only "$BEFORE" "$GITHUB_SHA" -- '.github/workflows/release.yml' | grep -q .; then
+            echo "workflow_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "workflow_changed=false" >> "$GITHUB_OUTPUT"
           fi
           if git diff --unified=0 "$BEFORE" "$GITHUB_SHA" -- "VERSION" | grep -E '^[+-]' >/dev/null; then
             echo "version_changed=true" >> "$GITHUB_OUTPUT"
@@ -95,6 +102,7 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
           VERSION_CHANGED: ${{ steps.diff.outputs.version_changed }}
           WEB_CHANGED: ${{ steps.diff.outputs.web_changed }}
+          WORKFLOW_CHANGED: ${{ steps.diff.outputs.workflow_changed }}
         run: |
           BASE_VERSION=$(python - <<'PY'
           from pathlib import Path
@@ -111,6 +119,7 @@ jobs:
           ref_name = os.environ["REF_NAME"]
           version_changed = os.environ.get("VERSION_CHANGED", "false")
           web_changed = os.environ.get("WEB_CHANGED", "false")
+          workflow_changed = os.environ.get("WORKFLOW_CHANGED", "false")
 
           match = re.fullmatch(
               r"(?P<core>\d+\.\d+\.\d+)"
@@ -144,7 +153,7 @@ jobs:
           ) else "false"
           should_deploy_pages = "true" if (
               (is_default_branch and should_release == "true")
-              or ((not is_default_branch) and web_changed == "true")
+              or ((not is_default_branch) and (web_changed == "true" or workflow_changed == "true"))
           ) else "false"
 
           print(f"should_release={should_release}")
