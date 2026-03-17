@@ -73,13 +73,13 @@ jobs:
             echo "No compare base available for release detection."
             exit 0
           fi
-if git diff --unified=0 "$BEFORE" "$GITHUB_SHA" -- "VERSION" | grep -E '^[+-]' >/dev/null; then
-  echo "version_changed=true" >> "$GITHUB_OUTPUT"
-elif git diff --unified=0 "$BEFORE" "$GITHUB_SHA" -- "${VERSION_FILES[@]}" | grep -E '^[+-].*("version"|version = |__version__)' >/dev/null; then
-  echo "version_changed=true" >> "$GITHUB_OUTPUT"
-else
-  echo "version_changed=false" >> "$GITHUB_OUTPUT"
-fi
+          if git diff --unified=0 "$BEFORE" "$GITHUB_SHA" -- "VERSION" | grep -E '^[+-]' >/dev/null; then
+            echo "version_changed=true" >> "$GITHUB_OUTPUT"
+          elif git diff --unified=0 "$BEFORE" "$GITHUB_SHA" -- "${VERSION_FILES[@]}" | grep -E '^[+-].*("version"|version = |__version__)' >/dev/null; then
+            echo "version_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "version_changed=false" >> "$GITHUB_OUTPUT"
+          fi
       - id: policy
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
