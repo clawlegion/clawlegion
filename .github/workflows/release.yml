@@ -6,6 +6,7 @@ on:
       - 'VERSION'
       - 'Cargo.toml'
       - 'web/**'
+      - '.github/workflows/release.yml'
       - 'crates/sdk/python/pyproject.toml'
       - 'crates/sdk/python/clawlegion/__init__.py'
       - 'packages/npm/package.json'
