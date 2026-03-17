@@ -17,7 +17,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0-2603171322-beta"
+version = "0.1.0-beta.1.202603171322"
 edition = "2021"
 rust-version = "1.75.0"
 authors = ["ClawLegion Team"]
@@ -77,11 +77,11 @@ ring = "0.17"
 base64 = "0.21"
 
 # Internal crates
-clawlegion-core = { version = "0.1.0-2603171322-beta", path = "crates/core" }
-clawlegion-plugin = { version = "0.1.0-2603171322-beta", path = "crates/plugin" }
-clawlegion-agent = { version = "0.1.0-2603171322-beta", path = "crates/agent" }
-clawlegion-org = { version = "0.1.0-2603171322-beta", path = "crates/org" }
-clawlegion-storage = { version = "0.1.0-2603171322-beta", path = "crates/storage" }
-clawlegion-capability = { version = "0.1.0-2603171322-beta", path = "crates/capability" }
-clawlegion-sentinel = { version = "0.1.0-2603171322-beta", path = "crates/sentinel" }
-clawlegion-llm = { version = "0.1.0-2603171322-beta", path = "crates/llm" }
+clawlegion-core = { version = "0.1.0-beta.1.202603171322", path = "crates/core" }
+clawlegion-plugin = { version = "0.1.0-beta.1.202603171322", path = "crates/plugin" }
+clawlegion-agent = { version = "0.1.0-beta.1.202603171322", path = "crates/agent" }
+clawlegion-org = { version = "0.1.0-beta.1.202603171322", path = "crates/org" }
+clawlegion-storage = { version = "0.1.0-beta.1.202603171322", path = "crates/storage" }
+clawlegion-capability = { version = "0.1.0-beta.1.202603171322", path = "crates/capability" }
+clawlegion-sentinel = { version = "0.1.0-beta.1.202603171322", path = "crates/sentinel" }
+clawlegion-llm = { version = "0.1.0-beta.1.202603171322", path = "crates/llm" }

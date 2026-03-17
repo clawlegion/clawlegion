@@ -74,6 +74,7 @@ def set_package_json_version(path: Path, version: str) -> None:
 
 
 def set_versions(version: str) -> None:
+    python_version = python_version_from_root(version)
     write_text(VERSION_FILE, f"{version}\n")
     update_regex(
         ROOT_CARGO,
@@ -91,12 +92,12 @@ def set_versions(version: str) -> None:
     update_regex(
         PYPROJECT,
         r'^(version = )"[^"]+"$',
-        rf'\1"{version}"',
+        rf'\1"{python_version}"',
     )
     update_regex(
         PYTHON_INIT,
         r'^__version__ = "[^"]+"$',
-        f'__version__ = "{version}"',
+        f'__version__ = "{python_version}"',
     )
 
 
@@ -114,8 +115,14 @@ def collect_versions() -> dict[str, str]:
 def check_versions() -> int:
     versions = collect_versions()
     expected = versions["root_version"]
+    python_expected = python_version_from_root(expected)
     mismatches = {
-        name: value for name, value in versions.items() if value != expected
+        name: value
+        for name, value in versions.items()
+        if (
+            (name in {"python_pyproject", "python_init"} and value != python_expected)
+            or (name not in {"python_pyproject", "python_init"} and value != expected)
+        )
     }
     if mismatches:
         print(json.dumps({"expected": expected, "mismatches": mismatches}, indent=2))
@@ -146,6 +153,30 @@ def semver_prerelease(version: str) -> str | None:
         raise ValueError(f"unsupported version format: {version}")
     return match.group("prerelease")
 
+
+def python_version_from_root(version: str) -> str:
+    """Derive a PEP 440 compatible version for the Python SDK."""
+    prerelease = semver_prerelease(version)
+    if not prerelease:
+        return version
+
+    parts = prerelease.split(".")
+    label = parts[0].lower()
+    if label in {"beta", "b"}:
+        beta_num = "0"
+        dev = None
+        if len(parts) >= 2 and parts[1].isdigit():
+            beta_num = parts[1]
+        if len(parts) >= 3 and parts[2].isdigit():
+            dev = parts[2]
+        py = f"{version.split('-', 1)[0]}b{beta_num}"
+        if dev:
+            py = f"{py}.dev{dev}"
+        return py
+
+    raise ValueError(
+        f"unsupported prerelease for python mapping: {prerelease}"
+    )
 
 def release_version(base_version: str, branch: str, default_branch: str, run_number: str) -> str:
     del run_number
