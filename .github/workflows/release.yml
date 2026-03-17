@@ -32,6 +32,7 @@ jobs:
     outputs:
       version_changed: ${{ steps.diff.outputs.version_changed }}
       should_release: ${{ steps.policy.outputs.should_release }}
+      should_deploy_pages: ${{ steps.policy.outputs.should_deploy_pages }}
       base_version: ${{ steps.policy.outputs.base_version }}
       release_version: ${{ steps.policy.outputs.release_version }}
       release_tag: ${{ steps.policy.outputs.release_tag }}
@@ -127,7 +128,14 @@ jobs:
               prerelease = "true"
               npm_dist_tag = "blocked"
 
-          print(f"should_release={version_changed}")
+          should_release = "true" if (
+              version_changed == "true"
+              and (is_default_branch or is_prerelease_version)
+          ) else "false"
+          should_deploy_pages = "true" if version_changed == "true" else "false"
+
+          print(f"should_release={should_release}")
+          print(f"should_deploy_pages={should_deploy_pages}")
           print(f"base_version={version}")
           print(f"release_version={version}")
           print(f"release_tag=v{version}")
@@ -138,14 +146,14 @@ jobs:
           print(f"publish_channel={publish_channel}")
           PY
       - name: Reject invalid non-default branch release version
-        if: steps.diff.outputs.version_changed == 'true' && steps.policy.outputs.publish_channel == 'blocked'
+        if: steps.policy.outputs.should_release == 'true' && steps.policy.outputs.publish_channel == 'blocked'
         run: |
           echo "::error::Non-default branches must use an explicit prerelease version (for example 0.1.0-beta.1) before this workflow can publish."
           exit 1
 
   build-binaries:
     needs: prepare
-    if: needs.prepare.outputs.should_release == 'true'
+    if: needs.prepare.outputs.should_deploy_pages == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -522,19 +530,43 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+      - uses: actions/checkout@v4
+        if: github.ref_name != github.event.repository.default_branch
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: default-branch
       - name: Install tooling
         run: |
           sudo apt-get update
           sudo apt-get install -y dpkg-dev apt-utils createrepo-c
-      - name: Build frontend
+      - name: Build frontend (default branch)
+        if: github.ref_name == github.event.repository.default_branch
         working-directory: web
         run: |
           pnpm install --frozen-lockfile
-          pnpm build
+          VITE_PUBLIC_BASE_PATH=/ pnpm build
+      - name: Build frontend (default for root)
+        if: github.ref_name != github.event.repository.default_branch
+        working-directory: default-branch/web
+        run: |
+          pnpm install --frozen-lockfile
+          VITE_PUBLIC_BASE_PATH=/ pnpm build
+      - name: Build frontend (pre)
+        if: github.ref_name != github.event.repository.default_branch
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          VITE_PUBLIC_BASE_PATH=/pre/ pnpm build
       - name: Assemble Pages site
         run: |
           mkdir -p site
-          cp -R web/dist/. site/
+          if [ "${{ github.ref_name }}" = "${{ github.event.repository.default_branch }}" ]; then
+            cp -R web/dist/. site/
+          else
+            cp -R default-branch/web/dist/. site/
+            mkdir -p site/pre
+            cp -R web/dist/. site/pre/
+          fi
           mkdir -p debs rpms
           find artifacts -type f -name '*.deb' -exec cp {} debs/ \;
           find artifacts -type f -name '*.rpm' -exec cp {} rpms/ \;
