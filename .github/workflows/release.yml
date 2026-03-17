@@ -498,13 +498,13 @@ jobs:
           git commit -m "Update clawlegion to ${{ needs.prepare.outputs.release_version }}"
           git push
 
-  pages:
+  pages-release:
     needs:
       - prepare
       - github-release
       - linux-packages
       - flatpak
-    if: needs.prepare.outputs.should_release == 'true'
+    if: needs.prepare.outputs.should_release == 'true' && github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -530,29 +530,123 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - uses: actions/checkout@v4
-        if: github.ref_name != github.event.repository.default_branch
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          path: default-branch
       - name: Install tooling
         run: |
           sudo apt-get update
           sudo apt-get install -y dpkg-dev apt-utils createrepo-c
       - name: Build frontend (default branch)
-        if: github.ref_name == github.event.repository.default_branch
         working-directory: web
         run: |
           pnpm install --frozen-lockfile
           VITE_PUBLIC_BASE_PATH=/ pnpm build
+      - name: Assemble Pages site
+        run: |
+          mkdir -p site
+          cp -R web/dist/. site/
+          mkdir -p debs rpms
+          find artifacts -type f -name '*.deb' -exec cp {} debs/ \;
+          find artifacts -type f -name '*.rpm' -exec cp {} rpms/ \;
+          chmod +x scripts/build_pages_repos.sh
+          ./scripts/build_pages_repos.sh site debs rpms artifacts/flatpak-repo
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
+        id: deployment
+
+  pages-pre:
+    needs:
+      - prepare
+    if: needs.prepare.outputs.should_deploy_pages == 'true' && github.ref_name != github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Configure pnpm store
+        run: pnpm config set store-dir "$PNPM_STORE_DIR"
+        env:
+          PNPM_STORE_DIR: ~/.pnpm-store
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: clawlegion-pnpm-${{ env.CACHE_SCHEMA }}-${{ runner.os }}-node${{ env.NODE_VERSION }}-pnpm${{ env.PNPM_VERSION }}-${{ hashFiles('web/pnpm-lock.yaml') }}
+          restore-keys: |
+            clawlegion-pnpm-${{ env.CACHE_SCHEMA }}-${{ runner.os }}-node${{ env.NODE_VERSION }}-pnpm${{ env.PNPM_VERSION }}-
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: default-branch
+      - name: Download latest release artifacts
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import io
+          import json
+          import os
+          import urllib.request
+          import zipfile
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          token = os.environ["GITHUB_TOKEN"]
+          default_branch = os.environ["DEFAULT_BRANCH"]
+          headers = {
+              "Authorization": f"Bearer {token}",
+              "Accept": "application/vnd.github+json",
+          }
+
+          def api(url):
+              req = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(req) as resp:
+                  return json.load(resp)
+
+          runs = api(
+              f"https://api.github.com/repos/{repo}/actions/workflows/release.yml/runs"
+              f"?branch={default_branch}&status=success&per_page=1"
+          )
+          if not runs.get("workflow_runs"):
+              raise SystemExit("No successful release workflow runs found.")
+          run_id = runs["workflow_runs"][0]["id"]
+
+          artifacts = api(f"https://api.github.com/repos/{repo}/actions/runs/{run_id}/artifacts")
+          targets = []
+          for artifact in artifacts.get("artifacts", []):
+              name = artifact.get("name", "")
+              if name.startswith("linux-packages-") or name == "flatpak-repo":
+                  targets.append(artifact)
+          if not targets:
+              raise SystemExit("No release artifacts found (linux-packages-*/flatpak-repo).")
+
+          os.makedirs("artifacts", exist_ok=True)
+          for artifact in targets:
+              url = artifact["archive_download_url"]
+              req = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(req) as resp:
+                  data = resp.read()
+              zipfile.ZipFile(io.BytesIO(data)).extractall("artifacts")
+          print("Downloaded artifacts:", ", ".join(a["name"] for a in targets))
+          PY
+      - name: Install tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev apt-utils createrepo-c
       - name: Build frontend (default for root)
-        if: github.ref_name != github.event.repository.default_branch
         working-directory: default-branch/web
         run: |
           pnpm install --frozen-lockfile
           VITE_PUBLIC_BASE_PATH=/ pnpm build
       - name: Build frontend (pre)
-        if: github.ref_name != github.event.repository.default_branch
         working-directory: web
         run: |
           pnpm install --frozen-lockfile
@@ -560,13 +654,9 @@ jobs:
       - name: Assemble Pages site
         run: |
           mkdir -p site
-          if [ "${{ github.ref_name }}" = "${{ github.event.repository.default_branch }}" ]; then
-            cp -R web/dist/. site/
-          else
-            cp -R default-branch/web/dist/. site/
-            mkdir -p site/pre
-            cp -R web/dist/. site/pre/
-          fi
+          cp -R default-branch/web/dist/. site/
+          mkdir -p site/pre
+          cp -R web/dist/. site/pre/
           mkdir -p debs rpms
           find artifacts -type f -name '*.deb' -exec cp {} debs/ \;
           find artifacts -type f -name '*.rpm' -exec cp {} rpms/ \;
@@ -584,7 +674,7 @@ jobs:
       - prepare
       - build-binaries
       - publish-python
-      - pages
+      - pages-release
     if: always() && needs.prepare.outputs.should_release == 'true' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
     permissions:
