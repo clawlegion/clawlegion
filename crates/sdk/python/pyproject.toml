@@ -1,6 +1,6 @@
 [project]
 name = "clawlegion-sdk"
-version = "0.1.0"
+version = "0.1.0-2603171321-beta"
 description = "Python SDK for developing plugins for ClawLegion Multi-Agent System"
 readme = "README.md"
 requires-python = ">=3.9"
