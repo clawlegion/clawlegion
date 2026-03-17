@@ -1,7 +1,7 @@
 {
   "name": "clawlegion-web",
   "private": true,
-  "version": "0.1.0-2603171321-beta",
+  "version": "0.1.0-2603171322-beta",
   "type": "module",
   "scripts": {
     "dev": "vite",

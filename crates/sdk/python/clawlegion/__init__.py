@@ -17,7 +17,7 @@ from .tool import Tool, ToolContext, ToolMetadata, ToolResult
 from .agent import AgentType, AgentConfig
 from .visibility import Visibility
 
-__version__ = "0.1.0-2603171321-beta"
+__version__ = "0.1.0-2603171322-beta"
 __all__ = [
     # Plugin
     "Plugin",
