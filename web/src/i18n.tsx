@@ -276,7 +276,6 @@ const TRANSLATIONS: Record<LocaleCode, Messages> = {
     "messages.send": "Envoyer",
     "system.title": "État du système",
     "system.subtitle": "État du nœud et résumé du runtime",
-  },
   }),
   es: Object.assign({}, EN_MESSAGES, {
     "app.nav.dashboard": "Panel",
@@ -564,7 +563,6 @@ const TRANSLATIONS: Record<LocaleCode, Messages> = {
     "system.plugin.sign": "簽署第一個外掛",
     "system.plugin.sign.privateKey": "/路徑/至/private.key",
     "system.plugin.sign.button": "簽署",
-  },
   }),
   de: Object.assign({}, EN_MESSAGES, {
     "app.nav.dashboard": "Übersicht",
@@ -665,7 +663,6 @@ const TRANSLATIONS: Record<LocaleCode, Messages> = {
     "system.plugin.sign": "Erstes Plugin signieren",
     "system.plugin.sign.privateKey": "/pfad/zum/private.key",
     "system.plugin.sign.button": "Signieren",
-  },
   }),
   ru: Object.assign({}, EN_MESSAGES, {
     "app.nav.dashboard": "Панель",
@@ -766,7 +763,6 @@ const TRANSLATIONS: Record<LocaleCode, Messages> = {
     "system.plugin.sign": "Подписать первый плагин",
     "system.plugin.sign.privateKey": "/demo/private.key",
     "system.plugin.sign.button": "Подписать",
-  },
   }),
   ar: Object.assign({}, EN_MESSAGES, {
     "app.nav.dashboard": "لوحة التحكم",
@@ -867,7 +863,6 @@ const TRANSLATIONS: Record<LocaleCode, Messages> = {
     "system.plugin.sign": "توقيع أول إضافة",
     "system.plugin.sign.privateKey": "/demo/private.key",
     "system.plugin.sign.button": "توقيع",
-  },
   }),
   ja: Object.assign({}, EN_MESSAGES, {
     "app.nav.dashboard": "ダッシュボード",
