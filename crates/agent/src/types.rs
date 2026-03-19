@@ -508,7 +508,7 @@ impl Agent for CodexAgent {
         self.base.info.updated_at = chrono::Utc::now();
 
         let provider_config = self.provider_config()?;
-        let started_at = std::time::Instant::now();
+        let _started_at = std::time::Instant::now();
         let request = crate::CodexRunRequest {
             prompt: crate::build_codex_prompt(
                 &self.base.config.name,
@@ -672,7 +672,7 @@ impl Agent for ClaudeCodeAgent {
         self.base.info.updated_at = chrono::Utc::now();
 
         let provider_config = self.provider_config()?;
-        let started_at = std::time::Instant::now();
+        let _started_at = std::time::Instant::now();
         let request = crate::ClaudeCodeRunRequest {
             prompt: crate::build_claude_code_prompt(
                 &self.base.config.name,
@@ -836,7 +836,7 @@ impl Agent for OpenCodeAgent {
         self.base.info.updated_at = chrono::Utc::now();
 
         let provider_config = self.provider_config()?;
-        let started_at = std::time::Instant::now();
+        let _started_at = std::time::Instant::now();
         let request = crate::OpenCodeRunRequest {
             prompt: crate::build_open_code_prompt(
                 &self.base.config.name,

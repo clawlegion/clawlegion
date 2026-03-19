@@ -168,7 +168,7 @@ const EN_MESSAGES: Messages = {
 const TRANSLATIONS: Record<LocaleCode, Messages> = {
   en: EN_MESSAGES,
   fr: {
-    ...EN_MESSAGES,
+    ...Object.assign({}, EN_MESSAGES),
     "app.nav.dashboard": "Tableau de bord",
     "app.nav.agents": "Agents",
     "app.nav.org": "Organigramme",
@@ -279,7 +279,7 @@ const TRANSLATIONS: Record<LocaleCode, Messages> = {
     "system.subtitle": "État du nœud et résumé du runtime",
   },
   es: {
-    ...EN_MESSAGES,
+    ...Object.assign({}, EN_MESSAGES),
     "app.nav.dashboard": "Panel",
     "app.nav.agents": "Agentes",
     "app.nav.org": "Organigrama",
@@ -391,7 +391,7 @@ const TRANSLATIONS: Record<LocaleCode, Messages> = {
     "system.subtitle": "Estado del nodo y resumen del runtime",
   },
   "zh-CN": {
-    ...EN_MESSAGES,
+    ...Object.assign({}, EN_MESSAGES),
     "app.nav.dashboard": "态势总览",
     "app.nav.agents": "Agent",
     "app.nav.org": "组织图",
@@ -468,7 +468,7 @@ const TRANSLATIONS: Record<LocaleCode, Messages> = {
     "agent.skills.subtitle": "技能单独从 API 拉取",
   },
   "zh-TW": {
-    ...EN_MESSAGES,
+    ...Object.assign({}, EN_MESSAGES),
     "app.nav.dashboard": "儀表板",
     "app.nav.agents": "Agent",
     "app.nav.org": "組織圖",
@@ -569,7 +569,7 @@ const TRANSLATIONS: Record<LocaleCode, Messages> = {
     "system.plugin.sign.button": "簽署",
   },
   de: {
-    ...EN_MESSAGES,
+    ...Object.assign({}, EN_MESSAGES),
     "app.nav.dashboard": "Übersicht",
     "app.nav.agents": "Agenten",
     "app.nav.org": "Organigramm",
@@ -670,7 +670,7 @@ const TRANSLATIONS: Record<LocaleCode, Messages> = {
     "system.plugin.sign.button": "Signieren",
   },
   ru: {
-    ...EN_MESSAGES,
+    ...Object.assign({}, EN_MESSAGES),
     "app.nav.dashboard": "Панель",
     "app.nav.agents": "Агенты",
     "app.nav.org": "Оргсхема",
@@ -771,7 +771,7 @@ const TRANSLATIONS: Record<LocaleCode, Messages> = {
     "system.plugin.sign.button": "Подписать",
   },
   ar: {
-    ...EN_MESSAGES,
+    ...Object.assign({}, EN_MESSAGES),
     "app.nav.dashboard": "لوحة التحكم",
     "app.nav.agents": "الوكلاء",
     "app.nav.org": "المخطط التنظيمي",
@@ -872,7 +872,7 @@ const TRANSLATIONS: Record<LocaleCode, Messages> = {
     "system.plugin.sign.button": "توقيع",
   },
   ja: {
-    ...EN_MESSAGES,
+    ...Object.assign({}, EN_MESSAGES),
     "app.nav.dashboard": "ダッシュボード",
     "app.nav.agents": "エージェント",
     "app.nav.org": "組織図",
