@@ -185,7 +185,7 @@ const TRANSLATIONS: Record<LocaleCode, Messages> = {
     "messages.userConsole": "Utilisateur de la console",
     "dashboard.systemStatus": "État du système",
     "dashboard.uptime": "Disponibilité {seconds}s",
-    "dashboard.agentActive": "Agents actifs",
+    ["dashboard.agentActive"]: "Agents actifs",
     "dashboard.polling": "Interrogé toutes les 5 secondes",
     "dashboard.pluginsLoaded": "Plugins chargés",
     "dashboard.memory": "Mémoire {value} MB",
