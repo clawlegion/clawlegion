@@ -13,9 +13,6 @@ pub struct AgentResponse {
     pub icon: Option<String>,
     pub reports_to: Option<String>,
     pub last_heartbeat: Option<DateTime<Utc>>,
-    pub budget_remaining_cents: Option<u64>,
-    pub token_usage_total: Option<u64>,
-    pub cost_total_cents: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,12 +26,9 @@ pub struct AgentDetailResponse {
     pub reports_to: Option<String>,
     pub capabilities: String,
     pub skills: Vec<String>,
-    pub budget_remaining_cents: Option<u64>,
     pub last_heartbeat: Option<DateTime<Utc>>,
     pub tasks_completed: Option<u64>,
     pub tasks_pending: Option<u64>,
-    pub token_usage_total: Option<u64>,
-    pub cost_total_cents: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,9 +70,6 @@ impl AgentResponse {
             icon: info.config.icon.clone(),
             reports_to: info.config.reports_to.map(|id| id.to_string()),
             last_heartbeat: info.last_heartbeat_at,
-            budget_remaining_cents: info.config.budget_monthly_cents,
-            token_usage_total: None,
-            cost_total_cents: None,
         }
     }
 }
@@ -95,12 +86,9 @@ impl AgentDetailResponse {
             reports_to: info.config.reports_to.map(|id| id.to_string()),
             capabilities: info.config.capabilities.clone(),
             skills: info.config.skills.clone(),
-            budget_remaining_cents: info.config.budget_monthly_cents,
             last_heartbeat: info.last_heartbeat_at,
             tasks_completed: None,
             tasks_pending: None,
-            token_usage_total: None,
-            cost_total_cents: None,
         }
     }
 }

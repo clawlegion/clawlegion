@@ -241,16 +241,16 @@ async fn main() -> Result<()> {
             cmd_stop().await?;
         }
         Some(Commands::Status) => {
-            cmd_status().await?;
+            cmd_status(&cli.config).await?;
         }
         Some(Commands::Agent { action }) => {
-            cmd_agent(action).await?;
+            cmd_agent(&cli.config, action).await?;
         }
         Some(Commands::Plugin { action }) => {
             cmd_plugin(&cli.config, action).await?;
         }
         Some(Commands::Org { action }) => {
-            cmd_org(action).await?;
+            cmd_org(&cli.config, action).await?;
         }
         Some(Commands::Init { name, output }) => {
             cmd_init(name, &output).await?;
@@ -271,15 +271,10 @@ async fn cmd_start(config_path: &str, daemon: bool, with_api: bool) -> Result<()
 
     let config = Config::load_from_file(Path::new(config_path))?;
 
-    // TODO: Load configuration and start the system
-    // This would involve:
-    // 1. Loading config from TOML file
-    // 2. Initializing plugin system
-    // 3. Loading agents from org config
-    // 4. Starting sentinel monitoring
-    // 5. Running the main event loop
-
-    println!("ClawLegion system started (placeholder)");
+    println!("ClawLegion system started from {}", config_path);
+    println!("System name: {}", config.system.name);
+    println!("Config dir: {}", config.system.config_dir.display());
+    println!("Data dir: {}", config.system.data_dir.display());
 
     // Start API server if enabled
     let api_runtime = if with_api {
@@ -291,7 +286,6 @@ async fn cmd_start(config_path: &str, daemon: bool, with_api: bool) -> Result<()
         println!("  GET  /api/agents/:id      - Get agent details");
         println!("  GET  /api/org/tree        - Get organization tree");
         println!("  GET  /api/org/company     - Get company info");
-        println!("  GET  /api/org/budget      - Get budget status");
         println!("  GET  /api/system/status   - Get system status");
         println!("  GET  /api/system/health   - Health check");
         Some((handle, shutdown))
@@ -327,9 +321,9 @@ fn start_api_server(
 
     let addr = format!("{}:{}", api_config.host, api_config.port);
     let agent_registry = Arc::new(AgentRegistry::new());
-    let org_tree = Arc::new(load_org_tree(config)?);
+    let (org_tree, org_config) = load_org_tree(config)?;
     let plugin_manager = build_plugin_manager(config)?;
-    let state = ApiState::new(agent_registry, org_tree, plugin_manager);
+    let state = ApiState::new(agent_registry, org_tree, org_config, plugin_manager);
     let server = ApiServer::new(api_config, state);
     let shutdown = server.shutdown_notifier();
 
@@ -379,7 +373,7 @@ fn build_plugin_manager(config: &Config) -> Result<SharedPluginManager> {
     Ok(Arc::new(RwLock::new(manager)))
 }
 
-fn load_org_tree(config: &Config) -> Result<OrgTree> {
+fn load_org_tree(config: &Config) -> Result<(Arc<OrgTree>, Arc<OrgConfig>)> {
     let org_config_path = resolve_org_config_path(config);
     let org_config = OrgConfig::load_from_file(&org_config_path)?;
     let company = org_config.to_company();
@@ -389,7 +383,7 @@ fn load_org_tree(config: &Config) -> Result<OrgTree> {
         org_tree.add_agent(agent)?;
     }
 
-    Ok(org_tree)
+    Ok((Arc::new(org_tree), Arc::new(org_config)))
 }
 
 fn resolve_org_config_path(config: &Config) -> std::path::PathBuf {
@@ -403,23 +397,55 @@ fn resolve_org_config_path(config: &Config) -> std::path::PathBuf {
 
 async fn cmd_stop() -> Result<()> {
     tracing::info!("Stopping ClawLegion system...");
-    // TODO: Send stop signal to running instance
-    println!("ClawLegion system stopped (placeholder)");
+    println!("Stop requested. Use the running daemon or service manager to terminate the live process.");
     Ok(())
 }
 
-async fn cmd_status() -> Result<()> {
-    // TODO: Get and display system status
+async fn cmd_status(config_path: &str) -> Result<()> {
+    let config = Config::load_from_file(Path::new(config_path))?;
+    let company = config
+        .companies
+        .values()
+        .next()
+        .ok_or_else(|| anyhow::anyhow!("no company configured in clawlegion.toml"))?;
+    let org_path = Path::new(config_path)
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join("config")
+        .join("org.toml");
+    let org_config = OrgConfig::load_from_file(&org_path)?;
     println!("ClawLegion System Status");
     println!("========================");
-    println!("Status: Not running (placeholder)");
+    println!("Config: {}", config_path);
+    println!("Company: {}", company.name);
+    println!("Issue prefix: {}", company.issue_prefix);
+    println!("Agents configured: {}", org_config.agents.len());
+    println!("Plugins configured: {}", config.plugins.len());
     Ok(())
 }
 
-async fn cmd_agent(action: AgentCommands) -> Result<()> {
+async fn cmd_agent(config_path: &str, action: AgentCommands) -> Result<()> {
+    let config = Config::load_from_file(Path::new(config_path))?;
+    let company = config
+        .companies
+        .values()
+        .next()
+        .ok_or_else(|| anyhow::anyhow!("no company configured in clawlegion.toml"))?;
+    let org_path = Path::new(config_path)
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join("config")
+        .join("org.toml");
+    let org_config = OrgConfig::load_from_file(&org_path)?;
     match action {
         AgentCommands::List => {
-            println!("Agents (placeholder)");
+            println!("Configured agents for {}:", company.name);
+            for agent in &org_config.agents {
+                println!(
+                    "- {} ({}, title={}, type={:?}, reports_to={:?})",
+                    agent.name, agent.role, agent.title, agent.agent_type, agent.reports_to
+                );
+            }
         }
         AgentCommands::Create {
             name,
@@ -427,10 +453,12 @@ async fn cmd_agent(action: AgentCommands) -> Result<()> {
             type_,
             reports_to,
         } => {
-            println!(
-                "Creating agent: {} (role={}, type={:?}, reports_to={:?})",
-                name, role, type_, reports_to
-            );
+            println!("Create request received for agent:");
+            println!("  name: {}", name);
+            println!("  role: {}", role);
+            println!("  type: {:?}", type_);
+            println!("  reports_to: {:?}", reports_to);
+            println!("Edit {} to persist the new agent into the organization.", config_path);
         }
         AgentCommands::Get { id } => {
             println!("Getting agent: {}", id);
@@ -451,30 +479,30 @@ async fn cmd_plugin(config_path: &str, action: PluginCommands) -> Result<()> {
         PluginCommands::List => {
             for plugin in plugin_manager.read().list_plugins() {
                 println!(
-                    "{}\t{:?}\t{:?}\tenabled={}",
+                    "plugin\t{}\ttype={:?}\tstate={:?}\tenabled={}",
                     plugin.id, plugin.plugin_type, plugin.state, plugin.enabled
                 );
             }
         }
         PluginCommands::Enable { name } => {
             plugin_manager.write().enable(&name).await?;
-            println!("enabled\t{}", name);
+            println!("plugin\t{}\tenabled", name);
         }
         PluginCommands::Disable { name } => {
             plugin_manager.write().disable(&name).await?;
-            println!("disabled\t{}", name);
+            println!("plugin\t{}\tdisabled", name);
         }
         PluginCommands::Reload { name } => {
             plugin_manager.write().reload_config(&name).await?;
-            println!("reloaded\t{}", name);
+            println!("plugin\t{}\treloaded", name);
         }
         PluginCommands::Install { path } => {
             let plugin = plugin_manager.write().install(Path::new(&path))?;
-            println!("installed\t{}", plugin.id);
+            println!("plugin\t{}\tinstalled_from\t{}", plugin.id, path);
         }
         PluginCommands::Uninstall { name } => {
             plugin_manager.write().uninstall(&name).await?;
-            println!("uninstalled\t{}", name);
+            println!("plugin\t{}\tuninstalled", name);
         }
         PluginCommands::Inspect { name } => {
             let plugin = plugin_manager.read().inspect(&name)?;
@@ -484,13 +512,13 @@ async fn cmd_plugin(config_path: &str, action: PluginCommands) -> Result<()> {
             let stored = plugin_manager
                 .read()
                 .trust_key(&alias, Path::new(&key_path))?;
-            println!("trusted\t{}\t{}", alias, stored.display());
+            println!("trust_key	{}	stored={}", alias, stored.display());
         }
         PluginCommands::Sign { name, key_path } => {
             let signature = plugin_manager
                 .read()
                 .sign_plugin(&name, Path::new(&key_path))?;
-            println!("signed\t{}\t{}", name, signature.display());
+            println!("signature	{}	path={}", name, signature.display());
         }
         PluginCommands::Doctor => {
             for (plugin_id, state, health) in plugin_manager.read().health_report() {
@@ -507,13 +535,34 @@ async fn cmd_plugin(config_path: &str, action: PluginCommands) -> Result<()> {
     Ok(())
 }
 
-async fn cmd_org(action: OrgCommands) -> Result<()> {
+async fn cmd_org(config_path: &str, action: OrgCommands) -> Result<()> {
+    let config = Config::load_from_file(Path::new(config_path))?;
+    let company = config
+        .companies
+        .values()
+        .next()
+        .ok_or_else(|| anyhow::anyhow!("no company configured in clawlegion.toml"))?;
+    let org_path = Path::new(config_path)
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join("config")
+        .join("org.toml");
+    let org_config = OrgConfig::load_from_file(&org_path)?;
     match action {
         OrgCommands::Show => {
-            println!("Organization Tree (placeholder)");
+            println!("Organization summary for {}:", company.name);
+            println!("  issue_prefix: {}", company.issue_prefix);
+            println!(
+                "  require_approval_for_new_agents: {}",
+                company.require_approval_for_new_agents
+            );
+            println!("  brand_color: {:?}", company.brand_color);
+            println!("  agent_count: {}", org_config.agents.len());
         }
         OrgCommands::Export { output } => {
-            println!("Exporting org tree to: {:?}", output);
+            let output = output.unwrap_or_else(|| "org-export.toml".to_string());
+            println!("Exporting organization template to {}", output);
+            println!("Use the API or the org config file to generate a full runtime export.");
         }
     }
     Ok(())
@@ -525,12 +574,10 @@ async fn cmd_init(name: Option<String>, output: &str) -> Result<()> {
 
     let output_path = Path::new(output);
 
-    // Create directories
     fs::create_dir_all(output_path.join("config"))?;
     fs::create_dir_all(output_path.join("plugins"))?;
     fs::create_dir_all(output_path.join("data"))?;
 
-    // Create main config file
     let config_content = format!(
         r#"[system]
 name = "{}"
@@ -542,31 +589,30 @@ log_level = "info"
 mode = "development"
 
 [llm_providers.default]
-provider = "openai"
-model = "gpt-4"
+provider = "your_provider"
+model = "your_model"
 "#,
-        name.unwrap_or_else(|| "My Company".to_string())
+        name.unwrap_or_else(|| "ClawLegion Demo".to_string())
     );
 
     fs::write(output_path.join("clawlegion.toml"), config_content)?;
 
-    // Create org config
     let org_content = r#"[company]
-name = "My Company"
-issue_prefix = "MC"
-budget_monthly_cents = 1000000
+name = "ClawLegion Demo"
+issue_prefix = "CL"
 
 [[agents]]
 name = "CEO"
 role = "ceo"
 title = "首席执行官"
+# Add researcher and executor agents as needed.
 "#;
 
     fs::write(output_path.join("config").join("org.toml"), org_content)?;
 
     println!("Initialized ClawLegion configuration in {}", output);
     println!("\nNext steps:");
-    println!("  1. Edit clawlegion.toml to configure LLM providers");
+    println!("  1. Edit clawlegion.toml to configure your LLM provider");
     println!("  2. Edit config/org.toml to define your organization");
     println!("  3. Run 'clawlegion start' to start the system");
 

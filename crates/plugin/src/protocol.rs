@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use clawlegion_core::{
     AgentError, Error as CoreError, HeartbeatResult, LlmError, LlmMessage, LlmOptions, LlmResponse,
-    MessageRole, Result as CoreResult, StreamChunk, TokenUsage,
+    MessageRole, Result as CoreResult, StreamChunk,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,8 +68,6 @@ pub struct LlmProtocolOptions {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_tokens: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub top_p: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub frequency_penalty: Option<f64>,
@@ -83,7 +81,6 @@ impl From<LlmOptions> for LlmProtocolOptions {
     fn from(value: LlmOptions) -> Self {
         Self {
             temperature: value.temperature,
-            max_tokens: value.max_tokens,
             top_p: value.top_p,
             frequency_penalty: value.frequency_penalty,
             presence_penalty: value.presence_penalty,
@@ -95,7 +92,6 @@ impl From<LlmOptions> for LlmProtocolOptions {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LlmExecuteResponse {
     pub text: String,
-    pub usage: TokenUsage,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub finish_reason: Option<String>,
 }
@@ -107,11 +103,6 @@ impl LlmExecuteResponse {
                 "llm response text must not be empty".to_string(),
             )));
         }
-        if self.usage.total_tokens < self.usage.prompt_tokens + self.usage.completion_tokens {
-            return Err(CoreError::Llm(LlmError::RequestFailed(
-                "llm response usage.total_tokens is inconsistent".to_string(),
-            )));
-        }
         Ok(())
     }
 
@@ -120,7 +111,7 @@ impl LlmExecuteResponse {
             content: Some(self.text),
             tool_calls: Vec::new(),
             finish_reason: self.finish_reason,
-            usage: self.usage,
+            usage: Default::default(),
         }
     }
 }
@@ -130,8 +121,6 @@ pub struct LlmStreamChunk {
     pub delta: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub finish_reason: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub usage: Option<TokenUsage>,
 }
 
 impl LlmStreamChunk {

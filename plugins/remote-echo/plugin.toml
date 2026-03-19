@@ -17,7 +17,7 @@ tags = ["remote", "skill", "example"]
 id = "skill.remote_echo"
 kind = "skill"
 display_name = "Remote Echo"
-description = "Remote skill endpoint placeholder."
+description = "Example remote skill endpoint for integration testing."
 interface = "clawlegion.skill.v1"
 tags = ["remote", "echo"]
 
@@ -25,7 +25,7 @@ tags = ["remote", "echo"]
 id = "tool.remote_echo"
 kind = "tool"
 display_name = "Remote Echo Tool"
-description = "Remote tool endpoint placeholder."
+description = "Example remote tool endpoint for integration testing."
 interface = "clawlegion.tool.v1"
 tags = ["remote", "echo", "tool"]
 

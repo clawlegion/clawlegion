@@ -30,8 +30,6 @@ pub struct CodexRunRequest {
 pub struct CodexRunResult {
     pub final_message: String,
     pub raw_events: Vec<Value>,
-    pub prompt_tokens: u64,
-    pub output_tokens: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -231,8 +229,6 @@ fn parse_codex_jsonl(stdout: &str) -> Result<CodexRunResult> {
     let mut raw_events = Vec::new();
     let mut messages: HashMap<String, String> = HashMap::new();
     let mut latest_message_id: Option<String> = None;
-    let mut prompt_tokens = 0;
-    let mut output_tokens = 0;
 
     for raw_line in stdout.lines() {
         let line = raw_line.trim();
@@ -270,22 +266,7 @@ fn parse_codex_jsonl(stdout: &str) -> Result<CodexRunResult> {
                     }
                 }
             }
-            Some("turn.completed") => {
-                if let Some(usage) = event.get("usage") {
-                    prompt_tokens += usage
-                        .get("input_tokens")
-                        .and_then(Value::as_u64)
-                        .unwrap_or(0);
-                    prompt_tokens += usage
-                        .get("cached_input_tokens")
-                        .and_then(Value::as_u64)
-                        .unwrap_or(0);
-                    output_tokens += usage
-                        .get("output_tokens")
-                        .and_then(Value::as_u64)
-                        .unwrap_or(0);
-                }
-            }
+            Some("turn.completed") => {}
             Some("turn.failed") => {
                 let message = event
                     .get("error")
@@ -316,8 +297,6 @@ fn parse_codex_jsonl(stdout: &str) -> Result<CodexRunResult> {
     Ok(CodexRunResult {
         final_message,
         raw_events,
-        prompt_tokens,
-        output_tokens,
     })
 }
 
@@ -456,7 +435,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_jsonl_collects_final_message_and_usage() {
+    fn parse_jsonl_collects_final_message() {
         let stdout = concat!(
             "{\"type\":\"item.started\",\"item\":{\"type\":\"agent_message\",\"id\":\"msg-1\",\"text\":\"\"}}\n",
             "{\"type\":\"item.updated\",\"item\":{\"type\":\"agent_message\",\"id\":\"msg-1\",\"text\":\"Hello\"}}\n",
@@ -466,8 +445,6 @@ mod tests {
 
         let result = parse_codex_jsonl(stdout).unwrap();
         assert_eq!(result.final_message, "Hello world");
-        assert_eq!(result.prompt_tokens, 12);
-        assert_eq!(result.output_tokens, 7);
         assert_eq!(result.raw_events.len(), 4);
     }
 

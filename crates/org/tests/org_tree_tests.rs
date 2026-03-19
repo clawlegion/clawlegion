@@ -447,15 +447,12 @@ fn test_org_agent_permissions() {
     let ceo_perms = AgentPermissions::ceo();
     assert!(ceo_perms.can_hire);
     assert!(ceo_perms.can_fire);
-    assert!(ceo_perms.can_manage_budget);
 
     let manager_perms = AgentPermissions::manager();
     assert!(manager_perms.can_hire);
     assert!(!manager_perms.can_fire);
-    assert!(manager_perms.can_manage_budget);
 
     let contributor_perms = AgentPermissions::contributor();
     assert!(!contributor_perms.can_hire);
     assert!(!contributor_perms.can_fire);
-    assert!(!contributor_perms.can_manage_budget);
 }

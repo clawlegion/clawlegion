@@ -5,7 +5,7 @@
 use async_trait::async_trait;
 use clawlegion_core::{
     Error, LlmError, LlmMessage, LlmOptions, LlmProvider, LlmProviderConfig, LlmResponse, Result,
-    StreamChunk, TokenUsage,
+    StreamChunk,
 };
 use clawlegion_plugin_sdk::{plugin, LlmProviderPlugin, Plugin, PluginMetadata};
 use std::sync::Arc;
@@ -56,7 +56,6 @@ impl LlmProvider for AnthropicProvider {
 
         let mut request_body = serde_json::json!({
             "model": self.model,
-            "max_tokens": options.max_tokens.unwrap_or(1024),
             "system": system_message,
             "messages": non_system_messages,
         });
@@ -105,11 +104,6 @@ impl LlmProvider for AnthropicProvider {
             .and_then(|t| t.as_str())
             .map(String::from);
 
-        let usage = response_body
-            .get("usage")
-            .map(|u| parse_usage(u))
-            .unwrap_or_default();
-
         Ok(LlmResponse {
             content,
             tool_calls: vec![],
@@ -117,7 +111,6 @@ impl LlmProvider for AnthropicProvider {
                 .get("stop_reason")
                 .and_then(|r| r.as_str())
                 .map(String::from),
-            usage,
         })
     }
 
@@ -129,26 +122,6 @@ impl LlmProvider for AnthropicProvider {
         Err(Error::Llm(LlmError::RequestFailed(
             "Streaming not implemented".to_string(),
         )))
-    }
-}
-
-/// Parse token usage from JSON
-fn parse_usage(usage: &serde_json::Value) -> TokenUsage {
-    TokenUsage {
-        prompt_tokens: usage
-            .get("prompt_tokens")
-            .or_else(|| usage.get("input_tokens"))
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0),
-        completion_tokens: usage
-            .get("completion_tokens")
-            .or_else(|| usage.get("output_tokens"))
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0),
-        total_tokens: usage
-            .get("total_tokens")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0),
     }
 }
 

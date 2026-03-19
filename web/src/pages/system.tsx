@@ -50,20 +50,20 @@ export function SystemPage() {
             </div>
             <div className="flex items-center justify-between">
               <span>{t("system.version")}</span>
-              <span>{status.data?.version ?? "--"}</span>
+              <span>{status.data?.version ?? t("common.na")}</span>
             </div>
             <div className="flex items-center justify-between">
               <span>{t("system.uptime")}</span>
               <span>
-                {status.data?.uptime_secs ?? "--"} {t("common.seconds")}
+                {status.data?.uptime_secs ?? t("common.na")} {t("common.seconds")}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span>{t("system.memory")}</span>
-              <span>{status.data?.memory_usage_mb ?? "--"} MB</span>
+              <span>{status.data?.memory_usage_mb ?? t("common.na")} MB</span>
             </div>
             <div className="flex items-center justify-between">
-              <span>Plugins</span>
+              <span>{t("system.plugins")}</span>
               <span>
                 {status.data?.plugins_active ?? 0} / {status.data?.plugins_loaded ?? 0}
               </span>
@@ -90,30 +90,30 @@ export function SystemPage() {
         </SectionCard>
       </div>
 
-      <SectionCard title="Plugin Platform" subtitle="Manifest-backed discovery, state, and capability index">
+      <SectionCard title={t("system.pluginPlatform.title")} subtitle={t("system.pluginPlatform.subtitle")}>
         <div className="space-y-4">
           <div className="grid gap-3 md:grid-cols-3">
             <div className="rounded-2xl border border-black/10 bg-stone-50 p-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-steel">Healthy</p>
+              <p className="text-xs uppercase tracking-[0.24em] text-steel">{t("system.health.healthy")}</p>
               <p className="mt-2 font-mono text-2xl">{status.data?.plugin_health.healthy ?? 0}</p>
             </div>
             <div className="rounded-2xl border border-black/10 bg-stone-50 p-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-steel">Degraded</p>
+              <p className="text-xs uppercase tracking-[0.24em] text-steel">{t("system.health.degraded")}</p>
               <p className="mt-2 font-mono text-2xl">{status.data?.plugin_health.degraded ?? 0}</p>
             </div>
             <div className="rounded-2xl border border-black/10 bg-stone-50 p-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-steel">Failed</p>
+              <p className="text-xs uppercase tracking-[0.24em] text-steel">{t("system.health.failed")}</p>
               <p className="mt-2 font-mono text-2xl">{status.data?.plugin_health.failed ?? 0}</p>
             </div>
           </div>
 
           <div className="rounded-3xl border border-black/10">
             <div className="grid grid-cols-[1.1fr_0.8fr_0.8fr_0.5fr_0.8fr] gap-3 border-b border-black/10 px-4 py-3 text-xs uppercase tracking-[0.24em] text-steel">
-              <span>Plugin</span>
-              <span>Runtime</span>
-              <span>State</span>
-              <span>Caps</span>
-              <span>Actions</span>
+              <span>{t("system.plugin.columns.plugin")}</span>
+              <span>{t("system.plugin.columns.runtime")}</span>
+              <span>{t("system.plugin.columns.state")}</span>
+              <span>{t("system.plugin.columns.caps")}</span>
+              <span>{t("system.plugin.columns.actions")}</span>
             </div>
             <div className="divide-y divide-black/10">
               {plugins.data?.plugins.map((plugin) => (
@@ -121,7 +121,7 @@ export function SystemPage() {
                   <div>
                     <p className="font-medium">{plugin.id}</p>
                     <p className="text-xs text-graphite/55">
-                      {plugin.enabled ? "enabled" : "disabled"}
+                      {plugin.enabled ? t("common.enabled") : t("common.disabled")}
                     </p>
                   </div>
                   <span className="capitalize">{plugin.manifest.runtime}</span>
@@ -138,30 +138,33 @@ export function SystemPage() {
                           : enablePlugin.mutate(plugin.id)
                       }
                     >
-                      {plugin.enabled ? "Disable" : "Enable"}
+                      {plugin.enabled ? t("system.plugin.disable") : t("system.plugin.enable")}
                     </button>
                     <button
                       className="rounded-full border border-black/10 px-2 py-1 text-xs"
                       onClick={() => reloadPlugin.mutate(plugin.id)}
                     >
-                      Reload
+                      {t("system.plugin.reload")}
                     </button>
                     <button
                       className="rounded-full border border-black/10 px-2 py-1 text-xs"
                       onClick={() => uninstallPlugin.mutate(plugin.id)}
                     >
-                      Uninstall
+                      {t("system.plugin.uninstall")}
                     </button>
                   </div>
                 </div>
               )) ?? (
-                <div className="px-4 py-6 text-sm text-graphite/60">No plugins discovered.</div>
+                <div className="px-4 py-6 text-sm text-graphite/60">
+                  <p>{t("system.plugin.empty")}</p>
+                  <p className="mt-2">{t("system.plugin.emptyHint")}</p>
+                </div>
               )}
             </div>
           </div>
 
           <div className="rounded-2xl border border-black/10 bg-stone-50 p-4">
-            <p className="text-xs uppercase tracking-[0.24em] text-steel">Capability Index</p>
+            <p className="text-xs uppercase tracking-[0.24em] text-steel">{t("system.plugin.capabilityIndex")}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {Object.entries(plugins.data?.capability_index ?? {}).map(([kind, owners]) => (
                 <span
@@ -175,7 +178,7 @@ export function SystemPage() {
           </div>
 
           <div className="rounded-2xl border border-black/10 bg-stone-50 p-4">
-            <p className="text-xs uppercase tracking-[0.24em] text-steel">Bridge Index</p>
+            <p className="text-xs uppercase tracking-[0.24em] text-steel">{t("system.plugin.bridgeIndex")}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {Object.entries(plugins.data?.bridge_index ?? {}).map(([kind, owners]) => (
                 <span
@@ -189,7 +192,7 @@ export function SystemPage() {
           </div>
 
           <div className="rounded-2xl border border-black/10 bg-stone-50 p-4">
-            <p className="text-xs uppercase tracking-[0.24em] text-steel">Sentinel Triggers</p>
+            <p className="text-xs uppercase tracking-[0.24em] text-steel">{t("system.plugin.sentinelTriggers")}</p>
             <div className="mt-3 space-y-2">
               {(plugins.data?.sentinel_triggers ?? []).map((trigger) => (
                 <div
@@ -197,19 +200,19 @@ export function SystemPage() {
                   className="rounded-2xl border border-black/10 bg-white px-3 py-2 text-sm text-graphite"
                 >
                   <p className="font-medium">{trigger.id}</p>
-                  <p className="text-xs text-steel">agent: {trigger.agent_id}</p>
-                  <p className="text-xs text-steel">enabled: {String(trigger.enabled)}</p>
-                  <p className="text-xs text-steel break-all">condition: {trigger.condition}</p>
+                  <p className="text-xs text-steel">{t("system.plugin.agent")}: {trigger.agent_id}</p>
+                  <p className="text-xs text-steel">{t("system.plugin.enabled")}: {String(trigger.enabled)}</p>
+                  <p className="text-xs text-steel break-all">{t("system.plugin.condition")}: {trigger.condition}</p>
                 </div>
               ))}
               {!(plugins.data?.sentinel_triggers?.length ?? 0) && (
-                <p className="text-sm text-steel">No sentinel triggers registered.</p>
+                <p className="text-sm text-steel">{t("system.plugin.noTriggers")}</p>
               )}
             </div>
           </div>
 
           <div className="rounded-2xl border border-black/10 bg-stone-50 p-4">
-            <p className="text-xs uppercase tracking-[0.24em] text-steel">Plugin Doctor</p>
+            <p className="text-xs uppercase tracking-[0.24em] text-steel">{t("system.plugin.doctor")}</p>
             <div className="mt-3 space-y-2">
               {(pluginDoctor.data?.reports ?? []).map((report, index) => (
                 <pre
@@ -220,19 +223,19 @@ export function SystemPage() {
                 </pre>
               ))}
               {!(pluginDoctor.data?.reports?.length ?? 0) && (
-                <p className="text-sm text-steel">No doctor report.</p>
+                <p className="text-sm text-steel">{t("system.plugin.noDoctor")}</p>
               )}
             </div>
           </div>
 
           <div className="rounded-2xl border border-black/10 bg-stone-50 p-4">
-            <p className="text-xs uppercase tracking-[0.24em] text-steel">Plugin Logs</p>
+            <p className="text-xs uppercase tracking-[0.24em] text-steel">{t("system.plugin.logs")}</p>
             <select
               className="mt-3 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
               value={selectedPluginId}
               onChange={(event) => setSelectedPluginId(event.target.value)}
             >
-              <option value="">Auto (first plugin)</option>
+              <option value="">{t("system.plugin.logs.auto")}</option>
               {(plugins.data?.plugins ?? []).map((plugin) => (
                 <option key={plugin.id} value={plugin.id}>
                   {plugin.id}
@@ -250,7 +253,7 @@ export function SystemPage() {
                 </div>
               ))}
               {!(pluginLogs.data?.logs?.length ?? 0) && (
-                <p className="text-sm text-steel">No runtime logs.</p>
+                <p className="text-sm text-steel">{t("system.plugin.noLogs")}</p>
               )}
             </div>
           </div>
@@ -266,15 +269,15 @@ export function SystemPage() {
                 }
               }}
             >
-              <p className="text-xs uppercase tracking-[0.24em] text-steel">Install Plugin</p>
+              <p className="text-xs uppercase tracking-[0.24em] text-steel">{t("system.plugin.install")}</p>
               <input
                 className="mt-3 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
-                placeholder="/path/to/plugin"
+                placeholder={t("system.plugin.install.placeholder")}
                 value={installPath}
                 onChange={(event) => setInstallPath(event.target.value)}
               />
               <button className="mt-3 rounded-full border border-black/10 px-3 py-1 text-xs">
-                Install
+                {t("system.plugin.install.button")}
               </button>
             </form>
 
@@ -292,21 +295,21 @@ export function SystemPage() {
                 }
               }}
             >
-              <p className="text-xs uppercase tracking-[0.24em] text-steel">Trust Key</p>
+              <p className="text-xs uppercase tracking-[0.24em] text-steel">{t("system.plugin.trust")}</p>
               <input
                 className="mt-3 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
-                placeholder="alias"
+                placeholder={t("system.plugin.trust.alias")}
                 value={trustAlias}
                 onChange={(event) => setTrustAlias(event.target.value)}
               />
               <input
                 className="mt-2 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
-                placeholder="/path/to/public.key"
+                placeholder={t("system.plugin.trust.publicKey")}
                 value={trustPath}
                 onChange={(event) => setTrustPath(event.target.value)}
               />
               <button className="mt-3 rounded-full border border-black/10 px-3 py-1 text-xs">
-                Trust
+                {t("system.plugin.trust.button")}
               </button>
             </form>
 
@@ -321,15 +324,15 @@ export function SystemPage() {
                 }
               }}
             >
-              <p className="text-xs uppercase tracking-[0.24em] text-steel">Sign First Plugin</p>
+              <p className="text-xs uppercase tracking-[0.24em] text-steel">{t("system.plugin.sign")}</p>
               <input
                 className="mt-3 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
-                placeholder="/path/to/private.key"
+                placeholder={t("system.plugin.sign.privateKey")}
                 value={signPath}
                 onChange={(event) => setSignPath(event.target.value)}
               />
               <button className="mt-3 rounded-full border border-black/10 px-3 py-1 text-xs">
-                Sign
+                {t("system.plugin.sign.button")}
               </button>
             </form>
           </div>

@@ -589,7 +589,6 @@ impl ProtocolBackedAgent {
                     reports_to: None,
                     capabilities: descriptor.id.clone(),
                     skills: Vec::new(),
-                    budget_monthly_cents: None,
                     adapter_type: "plugin-bridge".to_string(),
                     adapter_config: HashMap::new(),
                     runtime_config: HashMap::new(),
@@ -1262,7 +1261,6 @@ fn parse_sse_event(data: &str) -> CoreResult<LlmStreamChunk> {
         return Ok(LlmStreamChunk {
             delta: String::new(),
             finish_reason: Some("stop".to_string()),
-            usage: None,
         });
     }
 
@@ -1401,7 +1399,7 @@ else:
             .expect("chat success");
 
         assert_eq!(response.content.as_deref(), Some("remote-chat"));
-        assert_eq!(response.usage.total_tokens, 3);
+        assert_eq!(response.usage.total_tokens, 0);
         server.join().expect("join server");
     }
 

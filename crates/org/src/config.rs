@@ -29,10 +29,6 @@ pub struct CompanyConfig {
     /// Issue prefix
     pub issue_prefix: String,
 
-    /// Monthly budget in cents
-    #[serde(default)]
-    pub budget_monthly_cents: u64,
-
     /// Require approval for new agents
     #[serde(default = "default_true")]
     pub require_approval_for_new_agents: bool,
@@ -81,9 +77,6 @@ pub struct AgentConfigEntry {
     #[serde(default)]
     pub runtime_config: HashMap<String, serde_json::Value>,
 
-    /// Monthly budget
-    pub budget_monthly_cents: Option<u64>,
-
     /// Permissions
     #[serde(default)]
     pub permissions: AgentPermissionsConfig,
@@ -109,16 +102,11 @@ pub struct AgentPermissionsConfig {
     pub can_approve_tasks: bool,
 
     #[serde(default)]
-    pub can_manage_budget: bool,
-
-    #[serde(default)]
     pub can_access_company_data: bool,
 
     #[serde(default)]
     pub can_create_goals: bool,
 
-    #[serde(default)]
-    pub can_approve_spending: bool,
 }
 
 impl From<AgentPermissionsConfig> for AgentPermissions {
@@ -128,10 +116,8 @@ impl From<AgentPermissionsConfig> for AgentPermissions {
             can_fire: config.can_fire,
             can_assign_tasks: config.can_assign_tasks,
             can_approve_tasks: config.can_approve_tasks,
-            can_manage_budget: config.can_manage_budget,
             can_access_company_data: config.can_access_company_data,
             can_create_goals: config.can_create_goals,
-            can_approve_spending: config.can_approve_spending,
         }
     }
 }
@@ -183,7 +169,6 @@ impl OrgConfig {
             company.description = Some(desc.clone());
         }
 
-        company.budget_monthly_cents = self.company.budget_monthly_cents;
         company.require_approval_for_new_agents = self.company.require_approval_for_new_agents;
         company.brand_color = self.company.brand_color.clone();
 
@@ -228,7 +213,6 @@ impl OrgConfig {
             agent.adapter_type = agent_config.adapter_type.clone();
             agent.adapter_config = agent_config.adapter_config.clone();
             agent.runtime_config = agent_config.runtime_config.clone();
-            agent.budget_monthly_cents = agent_config.budget_monthly_cents;
             agent.permissions = agent_config.permissions.clone().into();
 
             agents.push(agent);

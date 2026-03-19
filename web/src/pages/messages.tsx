@@ -8,11 +8,6 @@ import { queryClient } from "../query-client";
 import { SectionCard } from "../components/section-card";
 import { useI18n } from "../i18n";
 
-const USER_PARTICIPANT = {
-  id: "user-console",
-  name: "Console User",
-};
-
 export function MessagesPage() {
   const agents = useAgents();
   const conversations = useConversations();
@@ -24,6 +19,10 @@ export function MessagesPage() {
   const activeConversation = useConversation(selectedConversationId);
   const messages = useMessages(selectedConversationId);
   const { t, intlLocale } = useI18n();
+  const USER_PARTICIPANT = {
+    id: "user-console",
+    name: t("messages.userConsole"),
+  };
 
   useEffect(() => {
     if (!selectedConversationId && conversations.data?.conversations[0]?.conversation_id) {
@@ -52,10 +51,23 @@ export function MessagesPage() {
     return activeConversation.data?.participants.find((participant) => participant.id !== USER_PARTICIPANT.id);
   }, [activeConversation.data?.participants]);
 
+  const isLoading = conversations.isLoading || messages.isLoading;
+  const loadError = conversations.error ?? messages.error;
+
   return (
     <div className="grid gap-5 xl:grid-cols-[0.34fr_0.96fr_0.45fr]">
       <SectionCard title={t("messages.list.title")} subtitle={t("messages.list.subtitle")}>
         <div className="space-y-3">
+          {isLoading ? (
+            <div className="rounded-2xl border border-dashed border-black/10 bg-stone-50 px-4 py-5 text-sm text-graphite/60">
+              {t("messages.loading")}
+            </div>
+          ) : null}
+          {loadError ? (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-5 text-sm text-amber-900">
+              {t("messages.loadError")}
+            </div>
+          ) : null}
           <div className="rounded-2xl border border-black/10 bg-stone-50 p-3">
             <p className="text-xs uppercase tracking-[0.24em] text-steel">{t("messages.create.agentAgent")}</p>
             <div className="mt-3 grid gap-2">
@@ -70,6 +82,7 @@ export function MessagesPage() {
               <button
                 className="rounded-xl bg-graphite px-3 py-2 text-sm text-sand disabled:opacity-50"
                 disabled={!leftAgentId || !rightAgentId || leftAgentId === rightAgentId}
+                title={leftAgentId && rightAgentId && leftAgentId !== rightAgentId ? t("messages.create.agentAgent") : t("messages.selectHint")}
                 onClick={() => {
                   const items = agents.data?.agents ?? [];
                   const left = items.find((item) => item.id === leftAgentId);
@@ -135,6 +148,11 @@ export function MessagesPage() {
       <SectionCard title={t("messages.thread.title")} subtitle={t("messages.thread.subtitle")}>
         <div className="flex h-[760px] flex-col">
           <div className="flex-1 space-y-3 overflow-y-auto rounded-[24px] border border-black/10 bg-stone-50 p-4">
+            {!selectedConversationId ? (
+              <div className="rounded-2xl border border-dashed border-black/10 bg-white px-4 py-5 text-sm text-graphite/60">
+                {t("messages.selectHint")}
+              </div>
+            ) : null}
             {messages.data?.messages.map((message) => {
               const outgoing = message.sender_id === USER_PARTICIPANT.id;
               return (
@@ -154,11 +172,13 @@ export function MessagesPage() {
               onChange={(event) => setMessageDraft(event.target.value)}
               className="min-h-28 rounded-2xl border border-black/10 bg-stone-50 p-4 text-sm outline-none"
               placeholder={t("messages.input.placeholder")}
+              disabled={!selectedConversationId}
             />
             <div className="flex justify-end">
               <button
                 className="rounded-xl bg-graphite px-4 py-2 text-sm text-sand disabled:opacity-50"
                 disabled={!selectedConversationId || !messageDraft.trim()}
+                title={selectedConversationId ? t("messages.send") : t("messages.selectHint")}
                 onClick={() => {
                   const peer = currentPeer ?? activeConversation.data?.participants[0];
                   if (!peer) return;

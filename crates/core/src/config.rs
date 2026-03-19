@@ -184,9 +184,6 @@ pub struct CompanyConfig {
     /// Issue prefix (e.g., "ACME" for ACME-123)
     pub issue_prefix: String,
 
-    /// Monthly budget in cents
-    pub budget_monthly_cents: u64,
-
     /// Require board approval for new agents
     pub require_approval_for_new_agents: bool,
 
@@ -240,9 +237,6 @@ pub struct LlmConfig {
 
     /// Default temperature
     pub default_temperature: Option<f64>,
-
-    /// Default max tokens
-    pub default_max_tokens: Option<u64>,
 }
 
 /// Hot reload configuration

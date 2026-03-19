@@ -14,18 +14,13 @@ export function useDashboardData() {
     queryFn: api.getSystemHealth,
     refetchInterval: 10_000,
   });
-  const budget = useQuery({
-    queryKey: ["budget"],
-    queryFn: api.getBudget,
-    refetchInterval: 15_000,
-  });
   const agents = useQuery({
     queryKey: ["agents"],
     queryFn: api.listAgents,
     refetchInterval: 5_000,
   });
 
-  return { system, health, budget, agents };
+  return { system, health, agents };
 }
 
 export const useAgents = () =>
@@ -65,9 +60,6 @@ export const useOrgTree = () =>
 
 export const useOrgAgents = () =>
   useQuery({ queryKey: ["org-agents"], queryFn: api.listOrgAgents });
-
-export const useBudget = () =>
-  useQuery({ queryKey: ["budget"], queryFn: api.getBudget });
 
 export const useSystemStatus = () =>
   useQuery({

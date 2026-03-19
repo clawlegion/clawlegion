@@ -9,7 +9,6 @@ fn test_org_config_parses_codex_agent_type() {
 [company]
 name = "Test Company"
 issue_prefix = "TST"
-budget_monthly_cents = 1000
 
 [[agents]]
 name = "Codex Agent"
@@ -41,7 +40,6 @@ fn test_org_config_parses_claude_code_agent_type() {
 [company]
 name = "Test Company"
 issue_prefix = "TST"
-budget_monthly_cents = 1000
 
 [[agents]]
 name = "Claude Code Agent"
@@ -84,7 +82,6 @@ fn test_org_config_parses_open_code_agent_type() {
 [company]
 name = "Test Company"
 issue_prefix = "TST"
-budget_monthly_cents = 1000
 
 [[agents]]
 name = "Open Code Agent"

@@ -5,7 +5,7 @@ pub use clawlegion_core::{
 };
 
 use async_trait::async_trait;
-use clawlegion_core::{AgentError, AgentInfo, LlmProviderConfig, Result, UsageInfo};
+use clawlegion_core::{AgentError, AgentInfo, LlmProviderConfig, Result};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -571,11 +571,6 @@ impl Agent for CodexAgent {
                     created_tasks: vec![],
                     sent_messages: vec![],
                     error: None,
-                    usage: UsageInfo {
-                        tokens: result.prompt_tokens + result.output_tokens,
-                        cost_cents: 0,
-                        execution_time_ms: started_at.elapsed().as_millis() as u64,
-                    },
                 })
             }
             Err(error) => {
@@ -740,11 +735,6 @@ impl Agent for ClaudeCodeAgent {
                     created_tasks: vec![],
                     sent_messages: vec![],
                     error: None,
-                    usage: UsageInfo {
-                        tokens: result.prompt_tokens + result.output_tokens,
-                        cost_cents: 0,
-                        execution_time_ms: started_at.elapsed().as_millis() as u64,
-                    },
                 })
             }
             Err(error) => {
@@ -909,11 +899,6 @@ impl Agent for OpenCodeAgent {
                     created_tasks: vec![],
                     sent_messages: vec![],
                     error: None,
-                    usage: UsageInfo {
-                        tokens: result.prompt_tokens + result.output_tokens,
-                        cost_cents: 0,
-                        execution_time_ms: started_at.elapsed().as_millis() as u64,
-                    },
                 })
             }
             Err(error) => {

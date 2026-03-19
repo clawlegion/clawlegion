@@ -2,9 +2,8 @@ import { useMemo, useState } from "react";
 import { Background, Controls, MiniMap, ReactFlow, type Edge, type Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import { useBudget, useOrgAgents, useOrgTree } from "../hooks/use-api";
+import { useOrgAgents, useOrgTree } from "../hooks/use-api";
 import type { OrgNode } from "../types/api";
-import { currencyFromCents } from "../lib/utils";
 import { SectionCard } from "../components/section-card";
 import { useI18n } from "../i18n";
 
@@ -46,9 +45,10 @@ function flattenTree(root: OrgNode) {
 export function OrgPage() {
   const tree = useOrgTree();
   const agents = useOrgAgents();
-  const budget = useBudget();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { t, intlLocale } = useI18n();
+  const { t } = useI18n();
+  const isLoading = tree.isLoading || agents.isLoading;
+  const loadError = tree.error ?? agents.error;
 
   const graph = useMemo(() => {
     if (!tree.data?.root) return { nodes: [], edges: [] };
@@ -58,6 +58,16 @@ export function OrgPage() {
   return (
     <div className="grid gap-5 xl:grid-cols-[1.4fr_0.6fr]">
       <SectionCard title={t("org.title")} subtitle={t("org.subtitle")}>
+        {isLoading ? (
+          <div className="mb-4 rounded-2xl border border-dashed border-black/10 bg-stone-50 px-4 py-5 text-sm text-graphite/60">
+            {t("messages.loading")}
+          </div>
+        ) : null}
+        {loadError ? (
+          <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-5 text-sm text-amber-900">
+            {t("messages.loadError")}
+          </div>
+        ) : null}
         <div className="h-[720px] overflow-hidden rounded-[24px] border border-black/10 bg-[#faf5ea]">
           <ReactFlow
             nodes={graph.nodes}
@@ -69,18 +79,21 @@ export function OrgPage() {
             <Controls />
             <Background gap={18} size={1} />
           </ReactFlow>
+          {!graph.nodes.length ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-white/90 px-6 text-center text-sm text-graphite/60">
+              {t("org.empty")}
+            </div>
+          ) : null}
         </div>
       </SectionCard>
       <div className="space-y-5">
-        <SectionCard title={t("org.budget.title")} subtitle={t("org.budget.subtitle")}>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between"><span>{t("org.monthlyBudget")}</span><span>{budget.data ? currencyFromCents(budget.data.budget_monthly_cents, intlLocale) : "--"}</span></div>
-            <div className="flex justify-between"><span>{t("org.spentBudget")}</span><span>{budget.data ? currencyFromCents(budget.data.budget_spent_cents, intlLocale) : "--"}</span></div>
-            <div className="flex justify-between"><span>{t("org.topSpender")}</span><span>{budget.data?.top_spenders[0]?.agent_name ?? "--"}</span></div>
-          </div>
-        </SectionCard>
         <SectionCard title={t("org.list.title")} subtitle={t("org.list.subtitle")}>
           <div className="space-y-2">
+            {!agents.data?.agents.length ? (
+              <div className="rounded-2xl border border-dashed border-black/10 bg-stone-50 px-4 py-5 text-sm text-graphite/60">
+                {t("org.empty")}
+              </div>
+            ) : null}
             {agents.data?.agents.map((agent) => (
               <button
                 key={agent.id}

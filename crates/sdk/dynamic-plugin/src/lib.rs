@@ -33,7 +33,7 @@
 pub use clawlegion_core::{
     Error, LlmMessage, LlmOptions, LlmProvider, LlmProviderConfig, LlmResponse, Plugin,
     PluginCapabilityDescriptor, PluginContext, PluginInfo, PluginManifest, PluginMetadata,
-    PluginState, PluginType, PluginUiMetadata, Result, StreamChunk, TokenUsage,
+    PluginState, PluginType, PluginUiMetadata, Result, StreamChunk,
 };
 
 pub use clawlegion_plugin::{

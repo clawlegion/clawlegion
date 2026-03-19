@@ -4,7 +4,7 @@ mod common;
 
 use clawlegion_core::{
     AgentConfig, AgentInfo, AgentStatus, AgentTypeDef, HeartbeatContext, HeartbeatResult,
-    HeartbeatTrigger, UsageInfo,
+    HeartbeatTrigger,
 };
 
 #[test]
@@ -20,7 +20,6 @@ fn test_agent_config_creation() {
         reports_to: None,
         capabilities: "Coding and testing".to_string(),
         skills: vec!["rust".to_string()],
-        budget_monthly_cents: Some(100000),
         adapter_type: "default".to_string(),
         adapter_config: Default::default(),
         runtime_config: Default::default(),
@@ -45,7 +44,6 @@ fn test_agent_info_creation() {
         reports_to: None,
         capabilities: "Management".to_string(),
         skills: vec![],
-        budget_monthly_cents: None,
         adapter_type: "default".to_string(),
         adapter_config: Default::default(),
         runtime_config: Default::default(),
@@ -211,24 +209,9 @@ fn test_heartbeat_result_with_data() {
     let mut result = HeartbeatResult::success();
     result.completed_tasks.push(task_id);
     result.sent_messages.push(msg_id);
-    result.usage = UsageInfo {
-        tokens: 100,
-        cost_cents: 10,
-        execution_time_ms: 50,
-    };
 
     assert_eq!(result.completed_tasks.len(), 1);
     assert_eq!(result.sent_messages.len(), 1);
-    assert_eq!(result.usage.tokens, 100);
-}
-
-#[test]
-fn test_usage_info_default() {
-    let usage = UsageInfo::default();
-
-    assert_eq!(usage.tokens, 0);
-    assert_eq!(usage.cost_cents, 0);
-    assert_eq!(usage.execution_time_ms, 0);
 }
 
 #[test]
@@ -246,7 +229,6 @@ fn test_agent_config_with_reports_to() {
         reports_to: Some(manager_id),
         capabilities: "Learning".to_string(),
         skills: vec![],
-        budget_monthly_cents: None,
         adapter_type: "default".to_string(),
         adapter_config: Default::default(),
         runtime_config: Default::default(),

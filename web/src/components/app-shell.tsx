@@ -1,8 +1,8 @@
 import { Activity, Building2, MessagesSquare, Radar, Server, Users } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 
-import { cn, currencyFromCents } from "../lib/utils";
-import { useBudget, useSystemStatus } from "../hooks/use-api";
+import { cn } from "../lib/utils";
+import { useSystemStatus } from "../hooks/use-api";
 import { useI18n } from "../i18n";
 import { StatusPill } from "./status-pill";
 
@@ -16,16 +16,15 @@ const NAV_ITEMS = [
 
 export function AppShell() {
   const system = useSystemStatus();
-  const budget = useBudget();
-  const { locale, localeOptions, setLocale, t, intlLocale } = useI18n();
+  const { locale, localeOptions, setLocale, t } = useI18n();
 
   return (
     <div className="min-h-screen bg-grain text-graphite">
       <div className="mx-auto flex min-h-screen max-w-[1600px] gap-6 px-4 py-4 lg:px-6">
         <aside className="hidden w-72 shrink-0 rounded-[32px] border border-black/10 bg-graphite p-6 text-sand shadow-panel lg:block">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-sand/60">ClawLegion</p>
-            <h1 className="mt-3 text-3xl font-semibold">Command Console</h1>
+            <p className="text-xs uppercase tracking-[0.3em] text-sand/60">{t("app.brand")}</p>
+            <h1 className="mt-3 text-3xl font-semibold">{t("app.console")}</h1>
             <p className="mt-3 text-sm leading-6 text-sand/70">
               {t("app.description")}
             </p>
@@ -63,11 +62,6 @@ export function AppShell() {
                     {t("app.activeAgents", {
                       active: system.data?.agents_active ?? "--",
                       total: system.data?.agents_total ?? "--",
-                    })}
-                  </span>
-                  <span>
-                    {t("app.budgetRemaining", {
-                      value: budget.data ? currencyFromCents(budget.data.budget_remaining_cents, intlLocale) : "--",
                     })}
                   </span>
                 </div>
