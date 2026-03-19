@@ -387,8 +387,8 @@ const TRANSLATIONS: Record<LocaleCode, Messages> = {
     "messages.send": "Enviar",
     "system.title": "Estado del sistema",
     "system.subtitle": "Estado del nodo y resumen del runtime",
-  },
-  "zh-CN": {
+  }),
+  "zh-CN": Object.assign({}, EN_MESSAGES, {
     "app.nav.dashboard": "态势总览",
     "app.nav.agents": "Agent",
     "app.nav.org": "组织图",
@@ -463,8 +463,8 @@ const TRANSLATIONS: Record<LocaleCode, Messages> = {
     "agent.lastHeartbeat": "最近心跳",
     "agent.skills.title": "能力与技能",
     "agent.skills.subtitle": "技能单独从 API 拉取",
-  },
-  "zh-TW": {
+  }),
+  "zh-TW": Object.assign({}, EN_MESSAGES, {
     "app.nav.dashboard": "儀表板",
     "app.nav.agents": "Agent",
     "app.nav.org": "組織圖",
