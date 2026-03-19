@@ -267,7 +267,6 @@ const TRANSLATIONS: Record<LocaleCode, Messages> = {
     "system.plugin.sign": "Signer le premier plugin",
     "system.plugin.sign.privateKey": "/chemin/vers/private.key",
     "system.plugin.sign.button": "Signer",
-    "dashboard.systemStatus": "État du système",
     "dashboard.agentActive": "Agents actifs",
     "dashboard.pluginsLoaded": "Plugins chargés",
     "agents.title": "Registre des agents",

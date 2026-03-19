@@ -2,13 +2,13 @@ use std::future::Future;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use axum::http::{HeaderValue, Method};
 use axum::{
     routing::{delete, get, post},
     Router,
 };
 use tokio::net::TcpListener;
 use tokio::sync::Notify;
-use axum::http::{HeaderValue, Method};
 use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
@@ -21,7 +21,14 @@ pub fn build_router(state: ApiState, cors_origins: &[String]) -> Router {
         .filter_map(|origin| HeaderValue::from_str(origin).ok())
         .collect::<Vec<_>>();
     let cors = CorsLayer::new()
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::PATCH, Method::DELETE, Method::OPTIONS])
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::PATCH,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
         .allow_headers(Any)
         .allow_origin(if allowlist.is_empty() {
             AllowOrigin::list([HeaderValue::from_static("http://127.0.0.1:3000")])

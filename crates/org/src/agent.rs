@@ -154,7 +154,6 @@ pub struct AgentPermissions {
 
     /// Can create goals
     pub can_create_goals: bool,
-
 }
 
 impl Default for AgentPermissions {

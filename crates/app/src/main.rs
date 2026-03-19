@@ -397,7 +397,9 @@ fn resolve_org_config_path(config: &Config) -> std::path::PathBuf {
 
 async fn cmd_stop() -> Result<()> {
     tracing::info!("Stopping ClawLegion system...");
-    println!("Stop requested. Use the running daemon or service manager to terminate the live process.");
+    println!(
+        "Stop requested. Use the running daemon or service manager to terminate the live process."
+    );
     Ok(())
 }
 
@@ -458,7 +460,10 @@ async fn cmd_agent(config_path: &str, action: AgentCommands) -> Result<()> {
             println!("  role: {}", role);
             println!("  type: {:?}", type_);
             println!("  reports_to: {:?}", reports_to);
-            println!("Edit {} to persist the new agent into the organization.", config_path);
+            println!(
+                "Edit {} to persist the new agent into the organization.",
+                config_path
+            );
         }
         AgentCommands::Get { id } => {
             println!("Getting agent: {}", id);

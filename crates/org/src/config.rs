@@ -106,7 +106,6 @@ pub struct AgentPermissionsConfig {
 
     #[serde(default)]
     pub can_create_goals: bool,
-
 }
 
 impl From<AgentPermissionsConfig> for AgentPermissions {

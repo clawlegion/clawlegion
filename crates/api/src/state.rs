@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use clawlegion_agent::AgentRegistry;
-use clawlegion_org::OrgTree;
 use clawlegion_org::OrgConfig;
+use clawlegion_org::OrgTree;
 use clawlegion_plugin::SharedPluginManager;
 
 use crate::services::{
