@@ -15,7 +15,7 @@ ClawLegion is a framework for building and running coordinated agent systems. Th
 ## What it is not
 
 It is not a finished enterprise autonomy product.
-It is not a collection of placeholder agent types or CLI wrappers.
+It is not a collection of placeholder agent types, or CLI wrappers.
 It is not safe to ship with embedded secrets or business-specific defaults.
 
 ## Quick Start
