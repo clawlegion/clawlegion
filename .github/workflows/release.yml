@@ -136,27 +136,23 @@ jobs:
           is_default_branch = ref_name == default_branch
           is_prerelease_version = bool(prerelease_label)
 
-          if is_default_branch:
+          if ref_name == "master":
               publish_channel = "stable"
               prerelease = "false"
               npm_dist_tag = "latest"
-          elif is_prerelease_version:
+          elif ref_name == "dev":
               publish_channel = "prerelease"
               prerelease = "true"
-              npm_dist_tag = prerelease_label.split(".", 1)[0].lower()
+              npm_dist_tag = prerelease_label.split(".", 1)[0].lower() if prerelease_label else "next"
           else:
-              publish_channel = "blocked"
-              prerelease = "true"
+              publish_channel = "daily"
+              prerelease = "false"
               npm_dist_tag = "blocked"
 
-          should_release = "true" if (
-              version_changed == "true"
-              and (is_default_branch or is_prerelease_version)
-          ) else "false"
+          should_release = "true" if version_changed == "true" else "false"
           should_deploy_pages = "true" if (
-              (is_default_branch and should_release == "true")
-              or ((not is_default_branch) and event_name == "workflow_dispatch")
-              or ((not is_default_branch) and (web_changed == "true" or workflow_changed == "true"))
+              (ref_name == "master" and should_release == "true")
+              or (ref_name == "dev" and should_release == "true")
           ) else "false"
 
           print(f"should_release={should_release}")
@@ -271,7 +267,7 @@ jobs:
     needs:
       - prepare
       - github-release
-    if: needs.prepare.outputs.should_release == 'true'
+    if: needs.prepare.outputs.should_release == 'true' && (github.ref_name == 'master' || github.ref_name == 'dev')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -309,7 +305,7 @@ jobs:
     needs:
       - prepare
       - github-release
-    if: needs.prepare.outputs.should_release == 'true'
+    if: needs.prepare.outputs.should_release == 'true' && (github.ref_name == 'master' || github.ref_name == 'dev')
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -529,7 +525,7 @@ jobs:
       - github-release
       - linux-packages
       - flatpak
-    if: needs.prepare.outputs.should_release == 'true' && github.ref_name == github.event.repository.default_branch
+    if: needs.prepare.outputs.should_release == 'true' && github.ref_name == 'master'
     runs-on: ubuntu-latest
     concurrency:
       group: github-pages
@@ -586,7 +582,7 @@ jobs:
   pages-pre:
     needs:
       - prepare
-    if: needs.prepare.outputs.should_deploy_pages == 'true' && github.ref_name != github.event.repository.default_branch
+    if: needs.prepare.outputs.should_deploy_pages == 'true' && github.ref_name == 'dev'
     runs-on: ubuntu-latest
     concurrency:
       group: github-pages
