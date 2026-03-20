@@ -2,23 +2,39 @@ use std::future::Future;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use axum::http::{HeaderValue, Method};
 use axum::{
     routing::{delete, get, post},
     Router,
 };
 use tokio::net::TcpListener;
 use tokio::sync::Notify;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 use crate::routes::{agents, messages, org, system};
 use crate::state::ApiState;
 
-pub fn build_router(state: ApiState, _cors_origins: &[String]) -> Router {
+pub fn build_router(state: ApiState, cors_origins: &[String]) -> Router {
+    let allowlist = cors_origins
+        .iter()
+        .filter_map(|origin| HeaderValue::from_str(origin).ok())
+        .collect::<Vec<_>>();
     let cors = CorsLayer::new()
-        .allow_methods(Any)
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::PATCH,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
         .allow_headers(Any)
-        .allow_origin(Any);
+        .allow_origin(if allowlist.is_empty() {
+            AllowOrigin::list([HeaderValue::from_static("http://127.0.0.1:3000")])
+        } else {
+            AllowOrigin::list(allowlist)
+        });
 
     let api_routes = Router::new()
         .route("/system/status", get(system::get_status))
@@ -55,8 +71,7 @@ pub fn build_router(state: ApiState, _cors_origins: &[String]) -> Router {
         .route("/messages/poll", get(messages::poll_updates))
         .route("/org/company", get(org::get_company))
         .route("/org/tree", get(org::get_org_tree))
-        .route("/org/agents", get(org::list_org_agents))
-        .route("/org/budget", get(org::get_budget));
+        .route("/org/agents", get(org::list_org_agents));
 
     Router::new()
         .nest("/api", api_routes)

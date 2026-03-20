@@ -144,17 +144,12 @@ impl Default for SystemConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum PluginTrustMode {
+    #[default]
     Development,
     Production,
-}
-
-impl Default for PluginTrustMode {
-    fn default() -> Self {
-        Self::Development
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -188,9 +183,6 @@ pub struct CompanyConfig {
 
     /// Issue prefix (e.g., "ACME" for ACME-123)
     pub issue_prefix: String,
-
-    /// Monthly budget in cents
-    pub budget_monthly_cents: u64,
 
     /// Require board approval for new agents
     pub require_approval_for_new_agents: bool,
@@ -245,9 +237,6 @@ pub struct LlmConfig {
 
     /// Default temperature
     pub default_temperature: Option<f64>,
-
-    /// Default max tokens
-    pub default_max_tokens: Option<u64>,
 }
 
 /// Hot reload configuration

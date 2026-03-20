@@ -80,6 +80,14 @@ pub struct ToolResult {
     pub is_error: bool,
 }
 
+/// LLM usage metrics
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LlmUsage {
+    pub prompt_tokens: u32,
+    pub completion_tokens: u32,
+    pub total_tokens: u32,
+}
+
 /// LLM response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LlmResponse {
@@ -91,17 +99,8 @@ pub struct LlmResponse {
 
     /// Finish reason
     pub finish_reason: Option<String>,
-
-    /// Token usage
-    pub usage: TokenUsage,
-}
-
-/// Token usage information
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct TokenUsage {
-    pub prompt_tokens: u64,
-    pub completion_tokens: u64,
-    pub total_tokens: u64,
+    /// Usage metrics
+    pub usage: LlmUsage,
 }
 
 /// LLM request options
@@ -109,9 +108,6 @@ pub struct TokenUsage {
 pub struct LlmOptions {
     /// Temperature for sampling (0.0 - 2.0)
     pub temperature: Option<f64>,
-
-    /// Maximum tokens to generate
-    pub max_tokens: Option<u64>,
 
     /// Top-p sampling
     pub top_p: Option<f64>,

@@ -1,65 +1,22 @@
-[system]
-name = "Reddit热榜文化有限公司"
-data_dir = "data"
+[runtime]
+mode = "demo"
 config_dir = "config"
-log_level = "info"
-telemetry_enabled = false
+org_config = "config/org.toml"
 
-[companies]
+[api]
+host = "127.0.0.1"
+port = 8080
+web_origin = "http://127.0.0.1:3000"
 
-[system.api_server]
-enabled = true
-host = "0.0.0.0"
-port = 3000
-cors_origins = ["http://localhost:5173"]
+[security]
+plugin_mode = "dev"
+plugin_signing_required = false
+plugin_public_key = ""
 
-[system.plugin_trust]
-mode = "development"
+[llm]
+provider = "mock"
+api_key_env = "CLAWLEGION_LLM_API_KEY"
 
-[plugins.reddit-fetcher]
-enabled = true
-config = {}
-priority = 100
+[executor]
+kind = "mock"
 
-[plugins.sqlite-storage]
-enabled = true
-config = {}
-priority = 100
-
-[plugins.openai-provider]
-enabled = true
-config = {}
-priority = 100
-
-[plugins.python-echo]
-enabled = true
-config = {}
-priority = 100
-
-[plugins.config-agent]
-enabled = true
-config = {}
-priority = 100
-
-[plugins.config-trigger]
-enabled = true
-config = { target_plugin_id = "config-agent", target_agent_capability = "agent.config_agent", cron = "*/10 * * * *", cooldown_secs = 10 }
-priority = 100
-
-[plugins.remote-echo]
-enabled = true
-config = {}
-priority = 100
-
-[plugins.remote-observer]
-enabled = true
-config = { target_plugin_id = "config-agent", target_agent_capability = "agent.config_agent", interval_secs = 120 }
-priority = 100
-
-[llm_providers.default]
-provider = "openai"
-model = "gpt-4"
-api_key = "sk-Sqpl5CyIo3yKu6Zez-code"
-api_base = "http://107.173.156.228:8317/v1"
-default_temperature = 0.3
-default_max_tokens = 1200

@@ -1,0 +1,18 @@
+name: clawlegion
+base: core22
+version: "__VERSION__"
+summary: ClawLegion Multi-Agent System CLI
+description: |
+  ClawLegion is a plugin-based multi-agent collaboration system with
+  CLI, API, frontend, and plugin SDKs.
+grade: stable
+confinement: strict
+
+apps:
+  clawlegion:
+    command: bin/clawlegion
+
+parts:
+  clawlegion:
+    plugin: dump
+    source: local

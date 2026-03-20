@@ -47,12 +47,6 @@ pub struct OrgAgent {
     /// Runtime configuration
     pub runtime_config: HashMap<String, serde_json::Value>,
 
-    /// Monthly budget in cents
-    pub budget_monthly_cents: Option<u64>,
-
-    /// Spent this month in cents
-    pub spent_monthly_cents: u64,
-
     /// Permissions
     pub permissions: AgentPermissions,
 
@@ -92,8 +86,6 @@ impl OrgAgent {
             adapter_type: "default".to_string(),
             adapter_config: HashMap::new(),
             runtime_config: HashMap::new(),
-            budget_monthly_cents: None,
-            spent_monthly_cents: 0,
             permissions: AgentPermissions::default(),
             last_heartbeat_at: None,
             metadata: HashMap::new(),
@@ -131,21 +123,6 @@ impl OrgAgent {
         self.updated_at = chrono::Utc::now();
     }
 
-    /// Record spending
-    pub fn record_spending(&mut self, amount_cents: u64) {
-        self.spent_monthly_cents += amount_cents;
-        self.updated_at = chrono::Utc::now();
-    }
-
-    /// Check if budget is exceeded
-    pub fn is_budget_exceeded(&self) -> bool {
-        if let Some(budget) = self.budget_monthly_cents {
-            self.spent_monthly_cents > budget
-        } else {
-            false
-        }
-    }
-
     /// Check if this agent is the CEO (root of org tree)
     pub fn is_ceo(&self) -> bool {
         self.reports_to.is_none()
@@ -172,17 +149,11 @@ pub struct AgentPermissions {
     /// Can approve tasks
     pub can_approve_tasks: bool,
 
-    /// Can manage budget
-    pub can_manage_budget: bool,
-
     /// Can access company-wide data
     pub can_access_company_data: bool,
 
     /// Can create goals
     pub can_create_goals: bool,
-
-    /// Can approve spending
-    pub can_approve_spending: bool,
 }
 
 impl Default for AgentPermissions {
@@ -192,10 +163,8 @@ impl Default for AgentPermissions {
             can_fire: false,
             can_assign_tasks: true,
             can_approve_tasks: false,
-            can_manage_budget: false,
             can_access_company_data: true,
             can_create_goals: false,
-            can_approve_spending: false,
         }
     }
 }
@@ -208,10 +177,8 @@ impl AgentPermissions {
             can_fire: true,
             can_assign_tasks: true,
             can_approve_tasks: true,
-            can_manage_budget: true,
             can_access_company_data: true,
             can_create_goals: true,
-            can_approve_spending: true,
         }
     }
 
@@ -222,10 +189,8 @@ impl AgentPermissions {
             can_fire: false,
             can_assign_tasks: true,
             can_approve_tasks: true,
-            can_manage_budget: true,
             can_access_company_data: true,
             can_create_goals: true,
-            can_approve_spending: true,
         }
     }
 
@@ -236,10 +201,8 @@ impl AgentPermissions {
             can_fire: false,
             can_assign_tasks: false,
             can_approve_tasks: false,
-            can_manage_budget: false,
             can_access_company_data: true,
             can_create_goals: false,
-            can_approve_spending: false,
         }
     }
 }

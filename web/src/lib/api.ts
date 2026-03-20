@@ -3,7 +3,6 @@ import type {
   AgentSkill,
   AgentStatus,
   AgentSummary,
-  BudgetInfo,
   CompanyInfo,
   Conversation,
   ConversationKind,
@@ -12,24 +11,31 @@ import type {
   Message,
   OrgAgent,
   OrgNode,
+  PluginDoctorResponse,
   PluginInfo,
   PluginListResponse,
   PluginLogsResponse,
-  PluginDoctorResponse,
   PluginMutationResponse,
   SystemStatus,
 } from "../types/api";
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000/api";
+import { getEffectiveApiBaseUrl } from "./runtime-api-base";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-    ...init,
-  });
+  const apiBaseUrl = getEffectiveApiBaseUrl();
+
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      },
+      ...init,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown network error";
+    throw new Error(`Network error for ${apiBaseUrl}: ${message}`);
+  }
 
   if (!response.ok) {
     throw new Error(`API ${response.status}: ${await response.text()}`);
@@ -47,7 +53,6 @@ export const api = {
   getCompany: async () => request<CompanyInfo>("/org/company"),
   getOrgTree: async () => request<{ root: OrgNode }>("/org/tree"),
   listOrgAgents: async () => request<{ agents: OrgAgent[] }>("/org/agents"),
-  getBudget: async () => request<BudgetInfo>("/org/budget"),
   getSystemStatus: async () => request<SystemStatus>("/system/status"),
   getSystemHealth: async () => request<HealthStatus>("/system/health"),
   getPlugins: async () => request<PluginListResponse>("/system/plugins"),
@@ -75,8 +80,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ private_key_path: privateKeyPath }),
     }),
-  getPluginLogs: async (id: string) =>
-    request<PluginLogsResponse>(`/system/plugins/${id}/logs`),
+  getPluginLogs: async (id: string) => request<PluginLogsResponse>(`/system/plugins/${id}/logs`),
   getPluginDoctor: async () => request<PluginDoctorResponse>("/system/plugins/doctor"),
   listConversations: async () =>
     request<{ conversations: ConversationSummary[] }>("/messages/conversations"),

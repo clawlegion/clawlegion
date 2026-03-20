@@ -4,8 +4,7 @@ use axum::{extract::State, Json};
 
 use crate::{
     dto::{
-        BudgetResponse, CompanyResponse, ListOrgAgentsResponse, OrgAgentResponse, OrgNodeResponse,
-        OrgTreeResponse,
+        CompanyResponse, ListOrgAgentsResponse, OrgAgentResponse, OrgNodeResponse, OrgTreeResponse,
     },
     state::ApiState,
 };
@@ -14,14 +13,12 @@ use crate::{
 pub async fn get_company(State(state): State<ApiState>) -> Json<CompanyResponse> {
     let company_id = state.org_tree.company_id();
     let agent_count = state.org_tree.agent_count();
+    let company = &state.org_config.company;
 
-    // Placeholder values - would need to query company config
     Json(CompanyResponse {
         company_id: company_id.to_string(),
-        company_name: "Unknown Company".to_string(), // TODO: Get from company config
-        issue_prefix: "UNKNOWN".to_string(),         // TODO: Get from company config
-        budget_monthly_cents: 0,                     // TODO: Get from company config
-        budget_spent_cents: 0,                       // TODO: Calculate from agent usage
+        company_name: company.name.clone(),
+        issue_prefix: company.issue_prefix.clone(),
         agent_count,
         created_at: None,
     })
@@ -64,34 +61,18 @@ pub async fn list_org_agents(State(state): State<ApiState>) -> Json<ListOrgAgent
     })
 }
 
-/// Get budget status
-pub async fn get_budget(State(state): State<ApiState>) -> Json<BudgetResponse> {
-    let company_id = state.org_tree.company_id();
-
-    // Placeholder values
-    let budget_monthly_cents: u64 = 1_000_000;
-    let budget_spent_cents: u64 = 350_000;
-    let budget_remaining_cents = budget_monthly_cents - budget_spent_cents;
-    let usage_percentage = (budget_spent_cents as f64 / budget_monthly_cents as f64) * 100.0;
-
-    Json(BudgetResponse {
-        company_id: company_id.to_string(),
-        budget_monthly_cents,
-        budget_spent_cents,
-        budget_remaining_cents,
-        usage_percentage,
-        projected_overrun: false,
-        top_spenders: vec![], // TODO: Calculate from agent usage
-    })
-}
-
 fn build_org_node_response(node: &clawlegion_org::OrgNode, depth: u32) -> OrgNodeResponse {
     OrgNodeResponse {
         node_id: node.id.to_string(),
         name: node.name.clone(),
         role: node.role.clone(),
         title: node.title.clone(),
-        icon: None, // TODO: Get from agent config
+        icon: node
+            .title
+            .chars()
+            .next()
+            .map(|ch| ch.to_string())
+            .or_else(|| Some(node.role.chars().next().unwrap_or('A').to_string())),
         depth,
         children: node
             .reports

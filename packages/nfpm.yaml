@@ -1,0 +1,38 @@
+name: clawlegion
+arch: ${NFPM_ARCH}
+platform: linux
+version: ${VERSION}
+section: utils
+priority: optional
+maintainer: ClawLegion Team <team@clawlegion.dev>
+description: ClawLegion Multi-Agent System CLI
+homepage: https://github.com/clawlegion/clawlegion
+license: MIT
+contents:
+  - src: ${PACKAGE_INPUT_DIR}/clawlegion
+    dst: /usr/bin/clawlegion
+    file_info:
+      mode: 0755
+  - src: ${PACKAGE_INPUT_DIR}/clawlegion.toml
+    dst: /usr/share/clawlegion/examples/clawlegion.toml
+    file_info:
+      mode: 0644
+  - src: ${PACKAGE_INPUT_DIR}/LICENSE
+    dst: /usr/share/doc/clawlegion/LICENSE
+    file_info:
+      mode: 0644
+  - src: ${PACKAGE_INPUT_DIR}/README.md
+    dst: /usr/share/doc/clawlegion/README.md
+    file_info:
+      mode: 0644
+  - src: ${PACKAGE_INPUT_DIR}/clawlegion.service
+    dst: /usr/lib/systemd/system/clawlegion.service
+    file_info:
+      mode: 0644
+overrides:
+  deb:
+    recommends:
+      - ca-certificates
+  rpm:
+    depends:
+      - systemd

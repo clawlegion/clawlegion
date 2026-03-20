@@ -1,41 +1,46 @@
-import { Activity, Cpu, DollarSign, PlugZap } from "lucide-react";
+import { Activity, Cpu, PlugZap } from "lucide-react";
 
 import { useDashboardData } from "../hooks/use-api";
-import { currencyFromCents } from "../lib/utils";
 import { SectionCard } from "../components/section-card";
 import { StatCard } from "../components/stat-card";
 import { StatusPill } from "../components/status-pill";
 import { useI18n } from "../i18n";
 
 export function DashboardPage() {
-  const { agents, budget, health, system } = useDashboardData();
-  const { t, intlLocale } = useI18n();
+  const { agents, health, system } = useDashboardData();
+  const { t } = useI18n();
+  const isLoading = agents.isLoading || health.isLoading || system.isLoading;
+  const loadError = agents.error ?? health.error ?? system.error;
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {isLoading ? (
+        <div className="rounded-2xl border border-dashed border-black/10 bg-stone-50 px-4 py-5 text-sm text-graphite/60">
+          {t("messages.loading")}
+        </div>
+      ) : null}
+      {loadError ? (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-5 text-sm text-amber-900">
+          {t("messages.loadError")}
+        </div>
+      ) : null}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <StatCard
           label={t("dashboard.systemStatus")}
-          value={system.data?.status ?? "--"}
+          value={system.data?.status ?? t("common.na")}
           helper={t("dashboard.uptime", { seconds: system.data?.uptime_secs ?? 0 })}
           icon={<Activity className="h-5 w-5" />}
         />
         <StatCard
           label={t("dashboard.agentActive")}
-          value={`${system.data?.agents_active ?? "--"}/${system.data?.agents_total ?? "--"}`}
+          value={`${system.data?.agents_active ?? t("common.na")}/${system.data?.agents_total ?? t("common.na")}`}
           helper={t("dashboard.polling")}
           icon={<Cpu className="h-5 w-5" />}
         />
         <StatCard
-          label={t("dashboard.budgetRemaining")}
-          value={budget.data ? currencyFromCents(budget.data.budget_remaining_cents, intlLocale) : "--"}
-          helper={budget.data ? t("dashboard.usage", { percent: budget.data.usage_percentage.toFixed(1) }) : undefined}
-          icon={<DollarSign className="h-5 w-5" />}
-        />
-        <StatCard
           label={t("dashboard.pluginsLoaded")}
-          value={`${system.data?.plugins_loaded ?? "--"}`}
-          helper={t("dashboard.memory", { value: system.data?.memory_usage_mb ?? "--" })}
+          value={`${system.data?.plugins_loaded ?? t("common.na")}`}
+          helper={t("dashboard.memory", { value: system.data?.memory_usage_mb ?? t("common.na") })}
           icon={<PlugZap className="h-5 w-5" />}
         />
       </div>

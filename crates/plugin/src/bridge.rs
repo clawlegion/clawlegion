@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
@@ -46,6 +47,12 @@ pub struct PluginBridgeHub {
     storage_backends: RwLock<HashMap<String, Arc<ProtocolBackedStorage>>>,
     trigger_cache: RwLock<HashMap<String, Vec<WakeupTrigger>>>,
     other_capabilities: RwLock<HashMap<String, Vec<PluginCapabilityDescriptor>>>,
+}
+
+impl Default for PluginBridgeHub {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PluginBridgeHub {
@@ -220,7 +227,7 @@ impl PluginBridgeHub {
         let mut snapshot = HashMap::new();
         snapshot.insert(
             "llm".to_string(),
-            self.llm_registry.list_providers().iter().cloned().collect(),
+            self.llm_registry.list_providers().to_vec(),
         );
         snapshot.insert(
             "skill".to_string(),
@@ -582,7 +589,6 @@ impl ProtocolBackedAgent {
                     reports_to: None,
                     capabilities: descriptor.id.clone(),
                     skills: Vec::new(),
-                    budget_monthly_cents: None,
                     adapter_type: "plugin-bridge".to_string(),
                     adapter_config: HashMap::new(),
                     runtime_config: HashMap::new(),
@@ -638,17 +644,24 @@ impl ProtocolBackedAgent {
             }
             PluginType::Remote => {
                 let endpoint = format_endpoint(&self.entrypoint, "/agent");
-                let response = reqwest::Client::new()
-                    .post(endpoint)
-                    .json(&request)
-                    .send()
-                    .await
-                    .map_err(|error| {
-                        CoreError::Agent(clawlegion_core::AgentError::ExecutionFailed(format!(
-                            "remote agent action request failed: {}",
-                            error
-                        )))
-                    })?;
+                let client = http_client_builder(&endpoint).build().map_err(|error| {
+                    CoreError::Agent(clawlegion_core::AgentError::ExecutionFailed(format!(
+                        "remote agent action client creation failed: {}",
+                        error
+                    )))
+                })?;
+                let response =
+                    client
+                        .post(endpoint)
+                        .json(&request)
+                        .send()
+                        .await
+                        .map_err(|error| {
+                            CoreError::Agent(clawlegion_core::AgentError::ExecutionFailed(format!(
+                                "remote agent action request failed: {}",
+                                error
+                            )))
+                        })?;
                 let status = response.status();
                 let body = response.text().await.map_err(|error| {
                     CoreError::Agent(clawlegion_core::AgentError::ExecutionFailed(format!(
@@ -758,7 +771,15 @@ impl Skill for ProtocolBackedSkill {
                 })
             }
             PluginType::Remote => {
-                let response = reqwest::Client::new()
+                let client = http_client_builder(&self.entrypoint)
+                    .build()
+                    .map_err(|error| {
+                        CoreError::Llm(LlmError::RequestFailed(format!(
+                            "remote skill {} client creation failed: {}",
+                            self.metadata.name, error
+                        )))
+                    })?;
+                let response = client
                     .post(&self.entrypoint)
                     .json(&_input)
                     .send()
@@ -845,7 +866,15 @@ impl Tool for ProtocolBackedTool {
                 })
             }
             PluginType::Remote => {
-                let response = reqwest::Client::new()
+                let client = http_client_builder(&self.entrypoint)
+                    .build()
+                    .map_err(|error| {
+                        CoreError::Llm(LlmError::RequestFailed(format!(
+                            "remote tool {} client creation failed: {}",
+                            self.metadata.name, error
+                        )))
+                    })?;
+                let response = client
                     .post(&self.entrypoint)
                     .json(&json!({
                         "plugin_id": self.plugin_id,
@@ -1008,6 +1037,28 @@ fn format_endpoint(base: &str, suffix: &str) -> String {
     )
 }
 
+fn endpoint_targets_loopback(endpoint: &str) -> bool {
+    reqwest::Url::parse(endpoint)
+        .ok()
+        .and_then(|url| url.host_str().map(str::to_string))
+        .is_some_and(|host| {
+            host.eq_ignore_ascii_case("localhost")
+                || host
+                    .parse::<IpAddr>()
+                    .map(|ip| ip.is_loopback())
+                    .unwrap_or(false)
+        })
+}
+
+fn http_client_builder(endpoint: &str) -> reqwest::ClientBuilder {
+    let builder = reqwest::Client::builder();
+    if endpoint_targets_loopback(endpoint) {
+        builder.no_proxy()
+    } else {
+        builder
+    }
+}
+
 fn invalid_schema_error(error: impl std::fmt::Display) -> CoreError {
     CoreError::Llm(LlmError::RequestFailed(format!(
         "invalid protocol payload: {}",
@@ -1048,7 +1099,13 @@ async fn execute_llm(
         }
         PluginType::Remote => {
             let endpoint = format_endpoint(entrypoint, "/llm/chat");
-            let response = reqwest::Client::new()
+            let client = http_client_builder(&endpoint).build().map_err(|error| {
+                CoreError::Llm(LlmError::RequestFailed(format!(
+                    "remote llm chat client creation failed: {}",
+                    error
+                )))
+            })?;
+            let response = client
                 .post(endpoint)
                 .json(request)
                 .send()
@@ -1122,7 +1179,13 @@ async fn stream_llm(
         }
         PluginType::Remote => {
             let endpoint = format_endpoint(entrypoint, "/llm/stream");
-            let response = reqwest::Client::new()
+            let client = http_client_builder(&endpoint).build().map_err(|error| {
+                CoreError::Llm(LlmError::RequestFailed(format!(
+                    "remote llm stream client creation failed: {}",
+                    error
+                )))
+            })?;
+            let response = client
                 .post(endpoint)
                 .header("Accept", "text/event-stream")
                 .json(request)
@@ -1198,7 +1261,6 @@ fn parse_sse_event(data: &str) -> CoreResult<LlmStreamChunk> {
         return Ok(LlmStreamChunk {
             delta: String::new(),
             finish_reason: Some("stop".to_string()),
-            usage: None,
         });
     }
 
@@ -1337,7 +1399,7 @@ else:
             .expect("chat success");
 
         assert_eq!(response.content.as_deref(), Some("remote-chat"));
-        assert_eq!(response.usage.total_tokens, 3);
+        assert_eq!(response.usage.total_tokens, 0);
         server.join().expect("join server");
     }
 

@@ -9,8 +9,6 @@ pub struct CompanyResponse {
     pub company_id: String,
     pub company_name: String,
     pub issue_prefix: String,
-    pub budget_monthly_cents: u64,
-    pub budget_spent_cents: u64,
     pub agent_count: usize,
     pub created_at: Option<DateTime<Utc>>,
 }
@@ -49,24 +47,4 @@ pub struct OrgAgentResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListOrgAgentsResponse {
     pub agents: Vec<OrgAgentResponse>,
-}
-
-/// Budget response
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BudgetResponse {
-    pub company_id: String,
-    pub budget_monthly_cents: u64,
-    pub budget_spent_cents: u64,
-    pub budget_remaining_cents: u64,
-    pub usage_percentage: f64,
-    pub projected_overrun: bool,
-    pub top_spenders: Vec<BudgetSpender>,
-}
-
-/// Budget spender info
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BudgetSpender {
-    pub agent_id: String,
-    pub agent_name: String,
-    pub spent_cents: u64,
 }

@@ -243,7 +243,6 @@ fn create_test_agent_config(name: &str) -> AgentConfig {
         reports_to: None,
         capabilities: "Testing".to_string(),
         skills: vec![],
-        budget_monthly_cents: None,
         adapter_type: "default".to_string(),
         adapter_config: Default::default(),
         runtime_config: Default::default(),

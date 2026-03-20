@@ -87,7 +87,16 @@ impl ProtocolBackedStorage {
         request: &ProtocolStorageRequest,
     ) -> Result<ProtocolStorageResponse> {
         let endpoint = format!("{}/{}", self.entrypoint.trim_end_matches('/'), "storage");
-        let response = reqwest::Client::new()
+        let client =
+            if self.entrypoint.contains("127.0.0.1") || self.entrypoint.contains("localhost") {
+                reqwest::Client::builder()
+                    .no_proxy()
+                    .build()
+                    .unwrap_or_else(|_| reqwest::Client::new())
+            } else {
+                reqwest::Client::new()
+            };
+        let response = client
             .post(endpoint)
             .json(request)
             .send()

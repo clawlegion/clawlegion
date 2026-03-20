@@ -5,7 +5,7 @@
 use async_trait::async_trait;
 use clawlegion_core::{
     Error, LlmError, LlmMessage, LlmOptions, LlmProvider, LlmProviderConfig, LlmResponse, Result,
-    StreamChunk, TokenUsage,
+    StreamChunk,
 };
 use clawlegion_plugin_sdk::{plugin, LlmProviderPlugin, Plugin, PluginMetadata};
 use std::sync::Arc;
@@ -53,9 +53,6 @@ impl LlmProvider for OpenAiProvider {
 
         if let Some(temp) = options.temperature {
             request_body["temperature"] = serde_json::json!(temp);
-        }
-        if let Some(max_tokens) = options.max_tokens {
-            request_body["max_tokens"] = serde_json::json!(max_tokens);
         }
         if let Some(tools) = options.tools {
             request_body["tools"] = serde_json::to_value(tools).map_err(|e| {
@@ -114,20 +111,15 @@ impl LlmProvider for OpenAiProvider {
             .and_then(|c| c.as_str())
             .map(String::from);
 
-        let usage = response_body
-            .get("usage")
-            .map(|u| parse_usage(u))
-            .unwrap_or_default();
-
-        Ok(LlmResponse {
+	        Ok(LlmResponse {
             content,
             tool_calls: vec![],
-            finish_reason: choices
-                .get("finish_reason")
-                .and_then(|f| f.as_str())
-                .map(String::from),
-            usage,
-        })
+	        finish_reason: choices
+	            .get("finish_reason")
+	            .and_then(|f| f.as_str())
+	            .map(String::from),
+            usage: Default::default(),
+	        })
     }
 
     async fn stream(
@@ -138,26 +130,6 @@ impl LlmProvider for OpenAiProvider {
         Err(Error::Llm(LlmError::RequestFailed(
             "Streaming not implemented".to_string(),
         )))
-    }
-}
-
-/// Parse token usage from JSON
-fn parse_usage(usage: &serde_json::Value) -> TokenUsage {
-    TokenUsage {
-        prompt_tokens: usage
-            .get("prompt_tokens")
-            .or_else(|| usage.get("input_tokens"))
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0),
-        completion_tokens: usage
-            .get("completion_tokens")
-            .or_else(|| usage.get("output_tokens"))
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0),
-        total_tokens: usage
-            .get("total_tokens")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0),
     }
 }
 

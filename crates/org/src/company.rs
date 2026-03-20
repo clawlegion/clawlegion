@@ -22,12 +22,6 @@ pub struct Company {
     /// Issue counter for generating unique issue numbers
     pub issue_counter: u64,
 
-    /// Monthly budget in cents
-    pub budget_monthly_cents: u64,
-
-    /// Spent this month in cents
-    pub spent_monthly_cents: u64,
-
     /// Require board approval for new agents
     pub require_approval_for_new_agents: bool,
 
@@ -51,8 +45,6 @@ impl Company {
             description: None,
             issue_prefix: issue_prefix.into(),
             issue_counter: 0,
-            budget_monthly_cents: 0,
-            spent_monthly_cents: 0,
             require_approval_for_new_agents: true,
             brand_color: None,
             created_at: now,
@@ -73,8 +65,6 @@ impl Company {
             description: None,
             issue_prefix: issue_prefix.into(),
             issue_counter: 0,
-            budget_monthly_cents: 0,
-            spent_monthly_cents: 0,
             require_approval_for_new_agents: true,
             brand_color: None,
             created_at: now,
@@ -94,33 +84,9 @@ impl Company {
         format!("{}-{}", self.issue_prefix, number)
     }
 
-    /// Set the monthly budget
-    pub fn set_budget(&mut self, budget_cents: u64) {
-        self.budget_monthly_cents = budget_cents;
-        self.updated_at = chrono::Utc::now();
-    }
-
-    /// Record spending
-    pub fn record_spending(&mut self, amount_cents: u64) {
-        self.spent_monthly_cents += amount_cents;
-        self.updated_at = chrono::Utc::now();
-    }
-
-    /// Check if budget is exceeded
-    pub fn is_budget_exceeded(&self) -> bool {
-        self.spent_monthly_cents > self.budget_monthly_cents
-    }
-
-    /// Get remaining budget
-    pub fn remaining_budget(&self) -> u64 {
-        self.budget_monthly_cents
-            .saturating_sub(self.spent_monthly_cents)
-    }
-
-    /// Reset monthly spending (called at the start of each month)
-    pub fn reset_monthly_spending(&mut self) {
-        self.spent_monthly_cents = 0;
-        self.issue_counter = 0; // Optionally reset issue counter
+    /// Reset monthly counters (called at the start of each month)
+    pub fn reset_monthly_counters(&mut self) {
+        self.issue_counter = 0;
         self.updated_at = chrono::Utc::now();
     }
 }

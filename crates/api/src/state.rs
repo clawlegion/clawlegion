@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use clawlegion_agent::AgentRegistry;
+use clawlegion_org::OrgConfig;
 use clawlegion_org::OrgTree;
 use clawlegion_plugin::SharedPluginManager;
 
@@ -15,6 +16,7 @@ use crate::services::{
 pub struct ApiState {
     pub agent_registry: Arc<AgentRegistry>,
     pub org_tree: Arc<OrgTree>,
+    pub org_config: Arc<OrgConfig>,
     pub plugin_manager: SharedPluginManager,
     pub message_service: Arc<MessageService>,
     pub start_time: chrono::DateTime<chrono::Utc>,
@@ -25,11 +27,13 @@ impl ApiState {
     pub fn new(
         agent_registry: Arc<AgentRegistry>,
         org_tree: Arc<OrgTree>,
+        org_config: Arc<OrgConfig>,
         plugin_manager: SharedPluginManager,
     ) -> Self {
         Self::with_message_service_config(
             agent_registry,
             org_tree,
+            org_config,
             plugin_manager,
             MessageServiceConfig::default(),
         )
@@ -38,6 +42,7 @@ impl ApiState {
     pub fn with_message_service_config(
         agent_registry: Arc<AgentRegistry>,
         org_tree: Arc<OrgTree>,
+        org_config: Arc<OrgConfig>,
         plugin_manager: SharedPluginManager,
         message_config: MessageServiceConfig,
     ) -> Self {
@@ -53,6 +58,7 @@ impl ApiState {
         Self {
             agent_registry,
             org_tree,
+            org_config,
             plugin_manager,
             message_service,
             start_time,

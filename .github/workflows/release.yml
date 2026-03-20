@@ -1,0 +1,658 @@
+name: Release
+
+on:
+  push:
+    paths:
+      - 'VERSION'
+      - 'Cargo.toml'
+      - 'web/**'
+      - '.github/workflows/release.yml'
+      - 'crates/sdk/python/pyproject.toml'
+      - 'crates/sdk/python/clawlegion/__init__.py'
+      - 'packages/npm/package.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  pages: write
+  actions: write
+
+env:
+  CARGO_TERM_COLOR: always
+  CACHE_SCHEMA: 2026-03
+  MAX_CACHES_PER_PREFIX: '6'
+  MAX_CACHE_AGE_DAYS: '21'
+  NODE_VERSION: '20'
+  PNPM_VERSION: '10'
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version_changed: ${{ steps.diff.outputs.version_changed }}
+      web_changed: ${{ steps.diff.outputs.web_changed }}
+      workflow_changed: ${{ steps.diff.outputs.workflow_changed }}
+      should_release: ${{ steps.policy.outputs.should_release }}
+      should_deploy_pages: ${{ steps.policy.outputs.should_deploy_pages }}
+      base_version: ${{ steps.policy.outputs.base_version }}
+      release_version: ${{ steps.policy.outputs.release_version }}
+      release_tag: ${{ steps.policy.outputs.release_tag }}
+      prerelease: ${{ steps.policy.outputs.prerelease }}
+      npm_dist_tag: ${{ steps.policy.outputs.npm_dist_tag }}
+      is_default_branch: ${{ steps.policy.outputs.is_default_branch }}
+      is_prerelease_version: ${{ steps.policy.outputs.is_prerelease_version }}
+      publish_channel: ${{ steps.policy.outputs.publish_channel }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Validate version sync
+        run: python scripts/version_sync.py check
+      - id: diff
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          VERSION_FILES=(
+            VERSION
+            Cargo.toml
+            web/package.json
+            crates/sdk/python/pyproject.toml
+            crates/sdk/python/clawlegion/__init__.py
+            packages/npm/package.json
+          )
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            if git rev-parse HEAD^ >/dev/null 2>&1; then
+              BEFORE=$(git rev-parse HEAD^)
+            else
+              BEFORE=""
+            fi
+          fi
+          if [ -z "$BEFORE" ]; then
+            echo "version_changed=false" >> "$GITHUB_OUTPUT"
+            echo "web_changed=false" >> "$GITHUB_OUTPUT"
+            echo "workflow_changed=false" >> "$GITHUB_OUTPUT"
+            echo "No compare base available for release detection."
+            exit 0
+          fi
+          if git diff --name-only "$BEFORE" "$GITHUB_SHA" -- 'web/**' | grep -q .; then
+            echo "web_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "web_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+          if git diff --name-only "$BEFORE" "$GITHUB_SHA" -- '.github/workflows/release.yml' | grep -q .; then
+            echo "workflow_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "workflow_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+          if git diff --unified=0 "$BEFORE" "$GITHUB_SHA" -- "VERSION" | grep -E '^[+-]' >/dev/null; then
+            echo "version_changed=true" >> "$GITHUB_OUTPUT"
+          elif git diff --unified=0 "$BEFORE" "$GITHUB_SHA" -- "${VERSION_FILES[@]}" | grep -E '^[+-].*("version"|version = |__version__)' >/dev/null; then
+            echo "version_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "version_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - id: policy
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+          VERSION_CHANGED: ${{ steps.diff.outputs.version_changed }}
+          WEB_CHANGED: ${{ steps.diff.outputs.web_changed }}
+          WORKFLOW_CHANGED: ${{ steps.diff.outputs.workflow_changed }}
+        run: |
+          BASE_VERSION=$(python - <<'PY'
+          from pathlib import Path
+          print(Path("VERSION").read_text(encoding="utf-8").strip())
+          PY
+          )
+          export BASE_VERSION
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import os
+          import re
+
+          version = os.environ["BASE_VERSION"]
+          default_branch = os.environ["DEFAULT_BRANCH"]
+          ref_name = os.environ["REF_NAME"]
+          event_name = os.environ["EVENT_NAME"]
+          version_changed = os.environ.get("VERSION_CHANGED", "false")
+          web_changed = os.environ.get("WEB_CHANGED", "false")
+          workflow_changed = os.environ.get("WORKFLOW_CHANGED", "false")
+
+          match = re.fullmatch(
+              r"(?P<core>\d+\.\d+\.\d+)"
+              r"(?:-(?P<prerelease>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
+              r"(?:\+(?P<build>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?",
+              version,
+          )
+          if not match:
+              raise SystemExit(f"Unsupported release version format: {version}")
+
+          prerelease_label = match.group("prerelease") or ""
+          is_default_branch = ref_name == default_branch
+          is_prerelease_version = bool(prerelease_label)
+
+          if ref_name == "master":
+              publish_channel = "stable"
+              prerelease = "false"
+              npm_dist_tag = "latest"
+          elif ref_name == "dev":
+              publish_channel = "prerelease"
+              prerelease = "true"
+              npm_dist_tag = prerelease_label.split(".", 1)[0].lower() if prerelease_label else "next"
+          else:
+              publish_channel = "daily"
+              prerelease = "false"
+              npm_dist_tag = "blocked"
+
+          should_release = "true" if version_changed == "true" else "false"
+          should_deploy_pages = "true" if (
+              (ref_name == "master" and should_release == "true")
+              or (ref_name == "dev" and should_release == "true")
+          ) else "false"
+
+          print(f"should_release={should_release}")
+          print(f"should_deploy_pages={should_deploy_pages}")
+          print(f"base_version={version}")
+          print(f"release_version={version}")
+          print(f"release_tag=v{version}")
+          print(f"prerelease={prerelease}")
+          print(f"npm_dist_tag={npm_dist_tag}")
+          print(f"is_default_branch={'true' if is_default_branch else 'false'}")
+          print(f"is_prerelease_version={'true' if is_prerelease_version else 'false'}")
+          print(f"publish_channel={publish_channel}")
+          PY
+      - name: Reject invalid non-default branch release version
+        if: steps.policy.outputs.should_release == 'true' && steps.policy.outputs.publish_channel == 'blocked'
+        run: |
+          echo "::error::Non-default branches must use an explicit prerelease version (for example 0.1.0-beta.1) before this workflow can publish."
+          exit 1
+
+  build-binaries:
+    needs: prepare
+    if: needs.prepare.outputs.should_release == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary_name: clawlegion
+            archive_ext: tar.gz
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            binary_name: clawlegion
+            archive_ext: tar.gz
+          - runner: macos-14
+            target: aarch64-apple-darwin
+            binary_name: clawlegion
+            archive_ext: tar.gz
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary_name: clawlegion.exe
+            archive_ext: zip
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: clawlegion-rust-release-${{ env.CACHE_SCHEMA }}
+          shared-key: stable-${{ runner.os }}-${{ matrix.target }}-release
+          key: ${{ hashFiles('Cargo.lock') }}
+          cache-workspace-crates: 'true'
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }} -p clawlegion
+      - name: Package binary
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.release_version }}
+          TARGET: ${{ matrix.target }}
+          BINARY_NAME: ${{ matrix.binary_name }}
+          ARCHIVE_EXT: ${{ matrix.archive_ext }}
+        run: |
+          mkdir -p dist
+          cp "target/$TARGET/release/$BINARY_NAME" "dist/clawlegion-v$RELEASE_VERSION-$TARGET${BINARY_NAME#clawlegion}"
+          mkdir -p archive-root
+          cp "target/$TARGET/release/$BINARY_NAME" "archive-root/$BINARY_NAME"
+          cp LICENSE archive-root/LICENSE
+          if [ "$ARCHIVE_EXT" = "zip" ]; then
+            powershell -Command "Compress-Archive -Path archive-root\\* -DestinationPath dist\\clawlegion-v$env:RELEASE_VERSION-$env:TARGET.zip"
+          else
+            tar -C archive-root -czf "dist/clawlegion-v$RELEASE_VERSION-$TARGET.tar.gz" .
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.target }}
+          path: dist/*
+
+  github-release:
+    needs:
+      - prepare
+      - build-binaries
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+      - uses: anchore/sbom-action@v0
+        with:
+          path: .
+          output-file: release-artifacts/sbom.spdx.json
+          format: spdx-json
+      - name: Generate checksums
+        run: |
+          find release-artifacts -type f -print0 | sort -z | xargs -0 sha256sum > release-artifacts/SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.release_tag }}
+          name: ${{ needs.prepare.outputs.release_tag }}
+          prerelease: ${{ needs.prepare.outputs.prerelease == 'true' }}
+          files: |
+            release-artifacts/**/*
+
+  publish-crates:
+    needs:
+      - prepare
+      - github-release
+    if: needs.prepare.outputs.should_release == 'true' && (github.ref_name == 'master' || github.ref_name == 'dev')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: clawlegion-rust-release-${{ env.CACHE_SCHEMA }}
+          shared-key: stable-${{ runner.os }}-publish-release
+          key: ${{ hashFiles('Cargo.lock') }}
+          cache-workspace-crates: 'true'
+      - name: Set release version
+        run: python scripts/version_sync.py set-version "${{ needs.prepare.outputs.release_version }}"
+      - name: Publish Rust crates in dependency order
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          for crate in \
+            clawlegion-core \
+            clawlegion-llm \
+            clawlegion-storage \
+            clawlegion-sentinel \
+            clawlegion-capability \
+            clawlegion-agent \
+            clawlegion-plugin \
+            clawlegion-plugin-sdk
+          do
+            cargo publish -p "$crate" --allow-dirty
+            sleep 30
+          done
+
+  publish-python:
+    needs:
+      - prepare
+      - github-release
+    if: needs.prepare.outputs.should_release == 'true' && (github.ref_name == 'master' || github.ref_name == 'dev')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crates/sdk/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: clawlegion-pip-${{ env.CACHE_SCHEMA }}-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('crates/sdk/python/pyproject.toml') }}
+          restore-keys: |
+            clawlegion-pip-${{ env.CACHE_SCHEMA }}-${{ runner.os }}-py${{ env.PYTHON_VERSION }}-
+      - name: Set release version
+        run: python ../../../scripts/version_sync.py set-version "${{ needs.prepare.outputs.release_version }}"
+      - name: Build Python SDK
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: crates/sdk/python/dist/
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+  publish-npm:
+    needs:
+      - prepare
+      - github-release
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/npm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+      - name: Set release version
+        run: python ../../scripts/version_sync.py set-version "${{ needs.prepare.outputs.release_version }}"
+        working-directory: .
+      - name: Publish npm package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --tag "${{ needs.prepare.outputs.npm_dist_tag }}"
+
+  linux-packages:
+    needs:
+      - prepare
+      - build-binaries
+    if: needs.prepare.outputs.should_release == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            nfpm_arch: amd64
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            nfpm_arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-${{ matrix.target }}
+          path: release-artifact
+      - name: Install nfpm
+        run: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+      - name: Stage package inputs
+        shell: bash
+        run: |
+          mkdir -p packaging/stage/${{ matrix.nfpm_arch }}
+          cp release-artifact/clawlegion-v${{ needs.prepare.outputs.release_version }}-${{ matrix.target }} packaging/stage/${{ matrix.nfpm_arch }}/clawlegion
+          cp clawlegion.toml packaging/stage/${{ matrix.nfpm_arch }}/clawlegion.toml
+          cp LICENSE packaging/stage/${{ matrix.nfpm_arch }}/LICENSE
+          cp README.md packaging/stage/${{ matrix.nfpm_arch }}/README.md
+          cp packaging/systemd/clawlegion.service packaging/stage/${{ matrix.nfpm_arch }}/clawlegion.service
+          chmod +x packaging/stage/${{ matrix.nfpm_arch }}/clawlegion
+      - name: Build deb and rpm
+        env:
+          VERSION: ${{ needs.prepare.outputs.release_version }}
+          NFPM_ARCH: ${{ matrix.nfpm_arch }}
+          PACKAGE_INPUT_DIR: ${{ github.workspace }}/packaging/stage/${{ matrix.nfpm_arch }}
+        run: |
+          mkdir -p dist/packages/${{ matrix.nfpm_arch }}
+          ~/go/bin/nfpm pkg --packager deb --config packaging/nfpm.yaml --target dist/packages/${{ matrix.nfpm_arch }}/
+          ~/go/bin/nfpm pkg --packager rpm --config packaging/nfpm.yaml --target dist/packages/${{ matrix.nfpm_arch }}/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages-${{ matrix.nfpm_arch }}
+          path: dist/packages/${{ matrix.nfpm_arch }}/*
+
+  snap:
+    needs:
+      - prepare
+      - build-binaries
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-x86_64-unknown-linux-gnu
+          path: release-artifact
+      - name: Prepare snap source
+        run: |
+          rm -rf packaging/snap/local
+          mkdir -p packaging/snap/local/bin
+          cp release-artifact/clawlegion-v${{ needs.prepare.outputs.release_version }}-x86_64-unknown-linux-gnu packaging/snap/local/bin/clawlegion
+          chmod +x packaging/snap/local/bin/clawlegion
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("packaging/snap/snapcraft.yaml")
+          content = path.read_text(encoding="utf-8").replace("__VERSION__", "${{ needs.prepare.outputs.release_version }}")
+          if "${{ needs.prepare.outputs.prerelease }}" == "true":
+              content = content.replace("grade: stable", "grade: devel")
+          path.write_text(content, encoding="utf-8")
+          PY
+      - uses: snapcore/action-build@v1
+        id: snapcraft
+        with:
+          path: packaging/snap
+      - uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ steps.snapcraft.outputs.snap }}
+          release: ${{ needs.prepare.outputs.publish_channel == 'stable' && 'stable' || 'edge' }}
+
+  flatpak:
+    needs:
+      - prepare
+      - github-release
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Flatpak toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+      - name: Download Linux archive
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.release_version }}
+        run: |
+          curl -fsSL -o clawlegion-linux.tar.gz "https://github.com/${{ github.repository }}/releases/download/$RELEASE_TAG/clawlegion-v$RELEASE_VERSION-x86_64-unknown-linux-gnu.tar.gz"
+          SHA256=$(sha256sum clawlegion-linux.tar.gz | awk '{print $1}')
+          python scripts/render_flatpak_manifest.py \
+            --template packaging/flatpak/io.clawlegion.ClawLegion.yaml.tmpl \
+            --output packaging/flatpak/io.clawlegion.ClawLegion.yaml \
+            --archive-url "https://github.com/${{ github.repository }}/releases/download/$RELEASE_TAG/clawlegion-v$RELEASE_VERSION-x86_64-unknown-linux-gnu.tar.gz" \
+            --archive-sha256 "$SHA256"
+      - name: Build Flatpak repo
+        run: |
+          flatpak-builder --force-clean build-dir packaging/flatpak/io.clawlegion.ClawLegion.yaml
+          flatpak build-export flatpak-repo build-dir
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-repo
+          path: flatpak-repo
+
+  homebrew:
+    needs:
+      - prepare
+      - github-release
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download macOS archives
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.release_version }}
+        run: |
+          curl -fsSL -o macos-x86_64.tar.gz "https://github.com/${{ github.repository }}/releases/download/$RELEASE_TAG/clawlegion-v$RELEASE_VERSION-x86_64-apple-darwin.tar.gz"
+          curl -fsSL -o macos-arm64.tar.gz "https://github.com/${{ github.repository }}/releases/download/$RELEASE_TAG/clawlegion-v$RELEASE_VERSION-aarch64-apple-darwin.tar.gz"
+      - name: Render formula
+        run: |
+          python scripts/render_homebrew_formula.py \
+            --template packaging/homebrew/clawlegion.rb.tmpl \
+            --output clawlegion.rb \
+            --version "${{ needs.prepare.outputs.release_version }}" \
+            --macos-x86-url "https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare.outputs.release_tag }}/clawlegion-v${{ needs.prepare.outputs.release_version }}-x86_64-apple-darwin.tar.gz" \
+            --macos-x86-sha "$(sha256sum macos-x86_64.tar.gz | awk '{print $1}')" \
+            --macos-arm-url "https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare.outputs.release_tag }}/clawlegion-v${{ needs.prepare.outputs.release_version }}-aarch64-apple-darwin.tar.gz" \
+            --macos-arm-sha "$(sha256sum macos-arm64.tar.gz | awk '{print $1}')"
+      - name: Push formula to tap repository
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          HOMEBREW_TAP_REPOSITORY: ${{ secrets.HOMEBREW_TAP_REPOSITORY }}
+        run: |
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${HOMEBREW_TAP_REPOSITORY}.git" tap
+          cp clawlegion.rb tap/Formula/clawlegion.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/clawlegion.rb
+          git commit -m "Update clawlegion to ${{ needs.prepare.outputs.release_version }}"
+          git push
+
+  pages-release:
+    needs:
+      - prepare
+      - github-release
+      - linux-packages
+      - flatpak
+    if: needs.prepare.outputs.should_release == 'true' && github.ref_name == 'master'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Configure pnpm store
+        run: pnpm config set store-dir "$PNPM_STORE_DIR"
+        env:
+          PNPM_STORE_DIR: ~/.pnpm-store
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: clawlegion-pnpm-${{ env.CACHE_SCHEMA }}-${{ runner.os }}-node${{ env.NODE_VERSION }}-pnpm${{ env.PNPM_VERSION }}-${{ hashFiles('web/pnpm-lock.yaml') }}
+          restore-keys: |
+            clawlegion-pnpm-${{ env.CACHE_SCHEMA }}-${{ runner.os }}-node${{ env.NODE_VERSION }}-pnpm${{ env.PNPM_VERSION }}-
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Install tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev apt-utils createrepo-c
+      - name: Build frontend (default branch)
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          VITE_PUBLIC_BASE_PATH=/ pnpm build
+      - name: Assemble Pages site
+        run: |
+          mkdir -p site
+          cp -R web/dist/. site/
+          mkdir -p debs rpms
+          find artifacts -type f -name '*.deb' -exec cp {} debs/ \;
+          find artifacts -type f -name '*.rpm' -exec cp {} rpms/ \;
+          chmod +x scripts/build_pages_repos.sh
+          ./scripts/build_pages_repos.sh site debs rpms artifacts/flatpak-repo
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
+        id: deployment
+
+  pages-pre:
+    needs:
+      - prepare
+    if: needs.prepare.outputs.should_deploy_pages == 'true' && github.ref_name == 'dev'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Configure pnpm store
+        run: pnpm config set store-dir "$PNPM_STORE_DIR"
+        env:
+          PNPM_STORE_DIR: ~/.pnpm-store
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: clawlegion-pnpm-${{ env.CACHE_SCHEMA }}-${{ runner.os }}-node${{ env.NODE_VERSION }}-pnpm${{ env.PNPM_VERSION }}-${{ hashFiles('web/pnpm-lock.yaml') }}
+          restore-keys: |
+            clawlegion-pnpm-${{ env.CACHE_SCHEMA }}-${{ runner.os }}-node${{ env.NODE_VERSION }}-pnpm${{ env.PNPM_VERSION }}-
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: default-branch
+      - name: Build frontend (default for root)
+        working-directory: default-branch/web
+        run: |
+          pnpm install --frozen-lockfile
+          VITE_PUBLIC_BASE_PATH=/ pnpm build
+      - name: Build frontend (pre)
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          VITE_PUBLIC_BASE_PATH=/pre/ pnpm build
+      - name: Assemble Pages site
+        run: |
+          mkdir -p site
+          cp -R default-branch/web/dist/. site/
+          mkdir -p site/pre
+          cp -R web/dist/. site/pre/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
+        id: deployment
+
+  cache-housekeeping:
+    needs:
+      - prepare
+      - build-binaries
+      - publish-python
+      - pages-release
+    if: always() && needs.prepare.outputs.should_release == 'true' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Delete stale GitHub Actions caches
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CACHE_PREFIXES: |
+            clawlegion-rust-
+            clawlegion-rust-ci-
+            clawlegion-rust-release-
+            clawlegion-pnpm-
+            clawlegion-pip-
+          MAX_CACHES_PER_PREFIX: ${{ env.MAX_CACHES_PER_PREFIX }}
+          MAX_CACHE_AGE_DAYS: ${{ env.MAX_CACHE_AGE_DAYS }}
+        run: node .github/scripts/cache-cleanup.mjs

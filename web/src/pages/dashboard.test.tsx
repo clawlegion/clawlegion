@@ -9,13 +9,12 @@ vi.mock("../hooks/use-api", () => ({
   useDashboardData: () => ({
     system: { data: { status: "healthy", uptime_secs: 42, agents_active: 4, agents_total: 5, plugins_loaded: 3, memory_usage_mb: 512 } },
     health: { data: { checks: { database: "healthy", llm_provider: "healthy", plugin_system: "degraded" } } },
-    budget: { data: { budget_remaining_cents: 123400, usage_percentage: 48.6 } },
     agents: { data: { agents: [{ id: "a-1", name: "Alpha", role: "lead", title: "Commander", status: "active" }] } },
   }),
 }));
 
 describe("DashboardPage", () => {
-  it("renders system and budget summaries", () => {
+  it("renders system summaries", () => {
     const client = new QueryClient();
     render(
       <I18nProvider>

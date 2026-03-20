@@ -156,9 +156,6 @@ pub struct AgentConfig {
     /// Skills loaded by this agent
     pub skills: Vec<String>,
 
-    /// Monthly budget in cents
-    pub budget_monthly_cents: Option<u64>,
-
     /// Adapter type for running this agent
     pub adapter_type: String,
 
@@ -273,22 +270,6 @@ pub struct HeartbeatResult {
 
     /// Error message if failed
     pub error: Option<String>,
-
-    /// Token/cost usage
-    pub usage: UsageInfo,
-}
-
-/// Token/cost usage information
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct UsageInfo {
-    /// LLM tokens used
-    pub tokens: u64,
-
-    /// Cost in cents
-    pub cost_cents: u64,
-
-    /// Execution time in milliseconds
-    pub execution_time_ms: u64,
 }
 
 impl HeartbeatResult {
@@ -299,7 +280,6 @@ impl HeartbeatResult {
             created_tasks: vec![],
             sent_messages: vec![],
             error: None,
-            usage: UsageInfo::default(),
         }
     }
 
@@ -310,7 +290,6 @@ impl HeartbeatResult {
             created_tasks: vec![],
             sent_messages: vec![],
             error: Some(message.into()),
-            usage: UsageInfo::default(),
         }
     }
 }

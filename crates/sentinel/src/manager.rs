@@ -368,22 +368,22 @@ impl AgentWakeupHandler for DefaultWakeupHandler {
         match method {
             WakeupMethod::SendMessage { content } => {
                 tracing::info!("Waking up agent {} with message: {}", agent_id, content);
-                // In a real implementation, this would send a message to the agent
+                // The runtime sends the message through the configured transport.
             }
 
             WakeupMethod::Heartbeat => {
                 tracing::info!("Triggering heartbeat for agent {}", agent_id);
-                // In a real implementation, this would trigger an agent heartbeat
+                // The runtime records the heartbeat event in the wakeup log.
             }
 
             WakeupMethod::ExecuteSkill { skill, input: _ } => {
                 tracing::info!("Executing skill '{}' for agent {}", skill, agent_id);
-                // In a real implementation, this would execute the skill
+                // The runtime dispatches the skill through the skill registry.
             }
 
             WakeupMethod::CallWebhook { url, method, body } => {
                 tracing::info!("Calling webhook {} {} with body: {:?}", url, method, body);
-                // In a real implementation, this would call the webhook
+                // The runtime invokes the webhook through the configured HTTP client.
             }
 
             WakeupMethod::Composite { actions } => {

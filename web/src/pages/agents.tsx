@@ -3,7 +3,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { Search } from "lucide-react";
 
 import { useAgents } from "../hooks/use-api";
-import { currencyFromCents, formatDateTime } from "../lib/utils";
+import { formatDateTime } from "../lib/utils";
 import { StatusPill } from "../components/status-pill";
 import { SectionCard } from "../components/section-card";
 import { useI18n } from "../i18n";
@@ -23,6 +23,9 @@ export function AgentsPage() {
     });
   }, [agents.data?.agents, query]);
 
+  const isLoading = agents.isLoading;
+  const loadError = agents.error;
+
   return (
     <SectionCard title={t("agents.title")} subtitle={t("agents.subtitle")}>
       <div className="mb-4 flex items-center gap-3 rounded-2xl border border-black/10 bg-stone-50 px-4 py-3">
@@ -34,6 +37,16 @@ export function AgentsPage() {
           placeholder={t("agents.search")}
         />
       </div>
+      {isLoading ? (
+        <div className="mb-4 rounded-2xl border border-dashed border-black/10 bg-stone-50 px-4 py-5 text-sm text-graphite/60">
+          {t("messages.loading")}
+        </div>
+      ) : null}
+      {loadError ? (
+        <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-5 text-sm text-amber-900">
+          {t("messages.loadError")}
+        </div>
+      ) : null}
 
       <div className="overflow-hidden rounded-[24px] border border-black/10">
         <table className="min-w-full divide-y divide-black/10 text-sm">
@@ -42,11 +55,13 @@ export function AgentsPage() {
               <th className="px-4 py-3">{t("agents.table.agent")}</th>
               <th className="px-4 py-3">{t("agents.table.status")}</th>
               <th className="px-4 py-3">{t("agents.table.heartbeat")}</th>
-              <th className="px-4 py-3">{t("agents.table.budget")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-black/5 bg-white/80">
-            {filtered.map((agent) => (
+          {!filtered.length ? (
+            <div className="px-4 py-6 text-sm text-graphite/60">{t("agents.empty")}</div>
+          ) : null}
+          {filtered.map((agent) => (
               <tr
                 key={agent.id}
                 className="cursor-pointer hover:bg-stone-50"
@@ -58,7 +73,6 @@ export function AgentsPage() {
                 </td>
                 <td className="px-4 py-4"><StatusPill status={agent.status} /></td>
                 <td className="px-4 py-4 text-graphite/70">{formatDateTime(agent.last_heartbeat, intlLocale)}</td>
-                <td className="px-4 py-4 text-graphite/70">{currencyFromCents(agent.budget_remaining, intlLocale)}</td>
               </tr>
             ))}
           </tbody>

@@ -7,9 +7,6 @@ export interface AgentSummary {
   icon?: string | null;
   reports_to?: string | null;
   last_heartbeat?: string | null;
-  budget_remaining: number;
-  token_usage_total: number;
-  cost_total_cents: number;
 }
 
 export interface AgentDetail extends AgentSummary {
@@ -38,8 +35,6 @@ export interface CompanyInfo {
   company_id: string;
   company_name: string;
   issue_prefix: string;
-  budget_monthly_cents: number;
-  budget_spent_cents: number;
   agent_count: number;
   created_at: string;
 }
@@ -62,22 +57,6 @@ export interface OrgAgent {
   depth: number;
   parent_id?: string | null;
   direct_reports_count: number;
-}
-
-export interface BudgetSpender {
-  agent_id: string;
-  agent_name: string;
-  spent_cents: number;
-}
-
-export interface BudgetInfo {
-  company_id: string;
-  budget_monthly_cents: number;
-  budget_spent_cents: number;
-  budget_remaining_cents: number;
-  usage_percentage: number;
-  projected_overrun: boolean;
-  top_spenders: BudgetSpender[];
 }
 
 export interface HealthStatus {

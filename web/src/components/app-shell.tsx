@@ -1,9 +1,10 @@
-import { Activity, Building2, MessagesSquare, Radar, Server, Users } from "lucide-react";
+import { Activity, Building2, Link2, MessagesSquare, Radar, Server, Users } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 
-import { cn, currencyFromCents } from "../lib/utils";
-import { useBudget, useSystemStatus } from "../hooks/use-api";
+import { useSystemStatus } from "../hooks/use-api";
+import { cn } from "../lib/utils";
 import { useI18n } from "../i18n";
+import { useBackendEndpoint } from "./backend-endpoint-provider";
 import { StatusPill } from "./status-pill";
 
 const NAV_ITEMS = [
@@ -16,19 +17,17 @@ const NAV_ITEMS = [
 
 export function AppShell() {
   const system = useSystemStatus();
-  const budget = useBudget();
-  const { locale, localeOptions, setLocale, t, intlLocale } = useI18n();
+  const { locale, localeOptions, setLocale, t } = useI18n();
+  const { effectiveApiBaseUrl, openSettings } = useBackendEndpoint();
 
   return (
     <div className="min-h-screen bg-grain text-graphite">
       <div className="mx-auto flex min-h-screen max-w-[1600px] gap-6 px-4 py-4 lg:px-6">
         <aside className="hidden w-72 shrink-0 rounded-[32px] border border-black/10 bg-graphite p-6 text-sand shadow-panel lg:block">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-sand/60">ClawLegion</p>
-            <h1 className="mt-3 text-3xl font-semibold">Command Console</h1>
-            <p className="mt-3 text-sm leading-6 text-sand/70">
-              {t("app.description")}
-            </p>
+            <p className="text-xs uppercase tracking-[0.3em] text-sand/60">{t("app.brand")}</p>
+            <h1 className="mt-3 text-3xl font-semibold">{t("app.console")}</h1>
+            <p className="mt-3 text-sm leading-6 text-sand/70">{t("app.description")}</p>
           </div>
           <nav className="mt-10 space-y-2">
             {NAV_ITEMS.map((item) => (
@@ -48,6 +47,7 @@ export function AppShell() {
             ))}
           </nav>
         </aside>
+
         <div className="flex min-w-0 flex-1 flex-col gap-5">
           <header className="rounded-[28px] border border-black/10 bg-white/70 px-5 py-4 shadow-panel backdrop-blur">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -65,14 +65,18 @@ export function AppShell() {
                       total: system.data?.agents_total ?? "--",
                     })}
                   </span>
-                  <span>
-                    {t("app.budgetRemaining", {
-                      value: budget.data ? currencyFromCents(budget.data.budget_remaining_cents, intlLocale) : "--",
-                    })}
-                  </span>
                 </div>
               </div>
+
               <div className="flex flex-wrap items-center justify-end gap-3 text-xs uppercase tracking-[0.2em] text-graphite/55">
+                <button
+                  className="inline-flex max-w-[24rem] items-center gap-2 rounded-full border border-black/10 px-3 py-2 normal-case tracking-normal text-left text-graphite/75 transition hover:bg-black/5"
+                  type="button"
+                  onClick={openSettings}
+                >
+                  <Link2 className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{effectiveApiBaseUrl}</span>
+                </button>
                 <label className="inline-flex items-center gap-2 rounded-full border border-black/10 px-3 py-2 normal-case tracking-normal text-graphite/70">
                   <span>{t("app.language")}</span>
                   <select
@@ -93,6 +97,7 @@ export function AppShell() {
               </div>
             </div>
           </header>
+
           <main className="pb-6">
             <Outlet />
           </main>

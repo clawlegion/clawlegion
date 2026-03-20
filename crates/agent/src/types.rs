@@ -5,7 +5,7 @@ pub use clawlegion_core::{
 };
 
 use async_trait::async_trait;
-use clawlegion_core::{AgentError, AgentInfo, LlmProviderConfig, Result, UsageInfo};
+use clawlegion_core::{AgentError, AgentInfo, LlmProviderConfig, Result};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -508,7 +508,7 @@ impl Agent for CodexAgent {
         self.base.info.updated_at = chrono::Utc::now();
 
         let provider_config = self.provider_config()?;
-        let started_at = std::time::Instant::now();
+        let _started_at = std::time::Instant::now();
         let request = crate::CodexRunRequest {
             prompt: crate::build_codex_prompt(
                 &self.base.config.name,
@@ -571,11 +571,6 @@ impl Agent for CodexAgent {
                     created_tasks: vec![],
                     sent_messages: vec![],
                     error: None,
-                    usage: UsageInfo {
-                        tokens: result.prompt_tokens + result.output_tokens,
-                        cost_cents: 0,
-                        execution_time_ms: started_at.elapsed().as_millis() as u64,
-                    },
                 })
             }
             Err(error) => {
@@ -677,7 +672,7 @@ impl Agent for ClaudeCodeAgent {
         self.base.info.updated_at = chrono::Utc::now();
 
         let provider_config = self.provider_config()?;
-        let started_at = std::time::Instant::now();
+        let _started_at = std::time::Instant::now();
         let request = crate::ClaudeCodeRunRequest {
             prompt: crate::build_claude_code_prompt(
                 &self.base.config.name,
@@ -740,11 +735,6 @@ impl Agent for ClaudeCodeAgent {
                     created_tasks: vec![],
                     sent_messages: vec![],
                     error: None,
-                    usage: UsageInfo {
-                        tokens: result.prompt_tokens + result.output_tokens,
-                        cost_cents: 0,
-                        execution_time_ms: started_at.elapsed().as_millis() as u64,
-                    },
                 })
             }
             Err(error) => {
@@ -846,7 +836,7 @@ impl Agent for OpenCodeAgent {
         self.base.info.updated_at = chrono::Utc::now();
 
         let provider_config = self.provider_config()?;
-        let started_at = std::time::Instant::now();
+        let _started_at = std::time::Instant::now();
         let request = crate::OpenCodeRunRequest {
             prompt: crate::build_open_code_prompt(
                 &self.base.config.name,
@@ -909,11 +899,6 @@ impl Agent for OpenCodeAgent {
                     created_tasks: vec![],
                     sent_messages: vec![],
                     error: None,
-                    usage: UsageInfo {
-                        tokens: result.prompt_tokens + result.output_tokens,
-                        cost_cents: 0,
-                        execution_time_ms: started_at.elapsed().as_millis() as u64,
-                    },
                 })
             }
             Err(error) => {

@@ -70,12 +70,12 @@ class ToolResult:
     """Execution time in milliseconds."""
 
     @classmethod
-    def success(cls, data: Any) -> "ToolResult":
+    def success_result(cls, data: Any) -> "ToolResult":
         """Create a successful result."""
         return cls(data=data, success=True)
 
     @classmethod
-    def error(cls, message: str, execution_time_ms: int = 0) -> "ToolResult":
+    def error_result(cls, message: str, execution_time_ms: int = 0) -> "ToolResult":
         """Create an error result."""
         return cls(success=False, error=message, execution_time_ms=execution_time_ms)
 

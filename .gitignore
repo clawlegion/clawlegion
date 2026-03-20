@@ -19,6 +19,8 @@ web/test-results/
 web/playwright-report/
 web/allure-results/
 web/*.tsbuildinfo
+packages/npm/vendor/
+packaging/snap/local/
 
 # Editor / OS junk
 .idea/

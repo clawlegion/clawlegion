@@ -64,9 +64,6 @@ class AgentConfig:
     skills: List[str] = field(default_factory=list)
     """Skills loaded by this agent."""
 
-    budget_monthly_cents: Optional[int] = None
-    """Monthly budget in cents."""
-
     adapter_type: str = "default"
     """Adapter type for running this agent."""
 
@@ -92,7 +89,6 @@ class AgentConfig:
             "reports_to": self.reports_to,
             "capabilities": self.capabilities,
             "skills": self.skills,
-            "budget_monthly_cents": self.budget_monthly_cents,
             "adapter_type": self.adapter_type,
             "adapter_config": self.adapter_config,
             "runtime_config": self.runtime_config,
@@ -113,7 +109,6 @@ class AgentConfig:
             reports_to=data.get("reports_to"),
             capabilities=data.get("capabilities", ""),
             skills=data.get("skills", []),
-            budget_monthly_cents=data.get("budget_monthly_cents"),
             adapter_type=data.get("adapter_type", "default"),
             adapter_config=data.get("adapter_config", {}),
             runtime_config=data.get("runtime_config", {}),
