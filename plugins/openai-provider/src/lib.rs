@@ -111,14 +111,15 @@ impl LlmProvider for OpenAiProvider {
             .and_then(|c| c.as_str())
             .map(String::from);
 
-        Ok(LlmResponse {
+	        Ok(LlmResponse {
             content,
             tool_calls: vec![],
-            finish_reason: choices
-                .get("finish_reason")
-                .and_then(|f| f.as_str())
-                .map(String::from),
-        })
+	        finish_reason: choices
+	            .get("finish_reason")
+	            .and_then(|f| f.as_str())
+	            .map(String::from),
+            usage: Default::default(),
+	        })
     }
 
     async fn stream(

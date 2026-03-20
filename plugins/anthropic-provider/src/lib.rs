@@ -111,6 +111,7 @@ impl LlmProvider for AnthropicProvider {
                 .get("stop_reason")
                 .and_then(|r| r.as_str())
                 .map(String::from),
+            usage: Default::default(),
         })
     }
 
